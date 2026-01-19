@@ -398,7 +398,7 @@ questEventFrame:SetScript("OnEvent", function(self, event, ...)
     if textType ~= "" and QuestReaderAddonDB.autoPlayEnabled then
         PlayQuestAudio(textType)  -- Call PlayQuestAudio with textType from event
     elseif event == "QUEST_FINISHED" then
-        StopCurrentSound() -- Stop sound when the quest dialog finishes
+        -- StopCurrentSound() -- Stop sound when the quest dialog finishes
     end
 
     lastTextType = textType
