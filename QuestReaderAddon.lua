@@ -21,6 +21,11 @@ if QuestReaderAddonDB.muteGossip == nil then
 else
     QuestReaderAddonDB.muteGossip = QuestReaderAddonDB.muteGossip
 end
+if QuestReaderAddonDB.stopDialogueOnClose == nil then
+    QuestReaderAddonDB.stopDialogueOnClose = true
+else
+    QuestReaderAddonDB.stopDialogueOnClose = QuestReaderAddonDB.stopDialogueOnClose
+end
 
 local function InitializeAddonDB()
     QuestReaderAddonDB = QuestReaderAddonDB or {}
@@ -40,6 +45,11 @@ local function InitializeAddonDB()
         QuestReaderAddonDB.muteGossip = true
     else
         QuestReaderAddonDB.muteGossip = QuestReaderAddonDB.muteGossip
+    end
+    if QuestReaderAddonDB.stopDialogueOnClose == nil then
+        QuestReaderAddonDB.stopDialogueOnClose = true
+    else
+        QuestReaderAddonDB.stopDialogueOnClose = QuestReaderAddonDB.stopDialogueOnClose
     end
     QuestReaderAddonDB.IsPaused = false
     QuestReaderAddonDB.IsSoundPaused = false
@@ -397,8 +407,8 @@ questEventFrame:SetScript("OnEvent", function(self, event, ...)
 
     if textType ~= "" and QuestReaderAddonDB.autoPlayEnabled then
         PlayQuestAudio(textType)  -- Call PlayQuestAudio with textType from event
-    elseif event == "QUEST_FINISHED" then
-        -- StopCurrentSound() -- Stop sound when the quest dialog finishes
+    elseif event == "QUEST_FINISHED" and QuestReaderAddonDB.stopDialogueOnClose then
+        StopCurrentSound() -- Stop sound when the quest dialog finishes
     end
 
     lastTextType = textType
