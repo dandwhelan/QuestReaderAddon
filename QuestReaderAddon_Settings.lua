@@ -54,6 +54,7 @@ function QuestReader:CreateSettings()
         { option = "autoPlayEnabled", detail = "Auto-play quest audio" },
         { option = "showMinimapButton", detail = "Show minimap button" },
         { option = "muteGossip", detail = "Mute greetings (instant autoplay)" },
+        { option = "stopDialogueOnClose", detail = "Stop Dialogue when closing Quest window" },
     }
 
     for _, keyInfo in ipairs(settingsInfo) do

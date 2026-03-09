@@ -21,6 +21,11 @@ if QuestReaderAddonDB.muteGossip == nil then
 else
     QuestReaderAddonDB.muteGossip = QuestReaderAddonDB.muteGossip
 end
+if QuestReaderAddonDB.stopDialogueOnClose == nil then
+    QuestReaderAddonDB.stopDialogueOnClose = true
+else
+    QuestReaderAddonDB.stopDialogueOnClose = QuestReaderAddonDB.stopDialogueOnClose
+end
 
 local function InitializeAddonDB()
     QuestReaderAddonDB = QuestReaderAddonDB or {}
@@ -40,6 +45,11 @@ local function InitializeAddonDB()
         QuestReaderAddonDB.muteGossip = true
     else
         QuestReaderAddonDB.muteGossip = QuestReaderAddonDB.muteGossip
+    end
+    if QuestReaderAddonDB.stopDialogueOnClose == nil then
+        QuestReaderAddonDB.stopDialogueOnClose = true
+    else
+        QuestReaderAddonDB.stopDialogueOnClose = QuestReaderAddonDB.stopDialogueOnClose
     end
     QuestReaderAddonDB.IsPaused = false
     QuestReaderAddonDB.IsSoundPaused = false
@@ -141,6 +151,19 @@ local function InitializeQuestFrameButtons()
     questFrameButton:SetScript("OnClick", function()
         PlayQuestAudio(nil, true)
     end)
+
+    -- Create the button for the Quest Log (QuestMapFrame)
+    if QuestMapFrame and QuestMapFrame.DetailsFrame then
+        local questLogButton = CreateFrame("Button", "QuestLogReaderButtonFrame", QuestMapFrame.DetailsFrame, "UIPanelButtonTemplate")
+        questLogButton:SetSize(90, 21)
+        questLogButton:SetText("Read Quest")
+        -- Position it at the top left of the details frame, offset to the right to be next to Back button
+        questLogButton:SetPoint("TOPLEFT", QuestMapFrame.DetailsFrame, "TOPLEFT", 105, -10)
+
+        questLogButton:SetScript("OnClick", function()
+            PlayQuestAudio("description", true)
+        end)
+    end
 end
 
 loadingFrame:SetScript("OnEvent", function(self, event, loadedAddonName)
@@ -284,7 +307,14 @@ function StopCurrentSound()
 end
 
 function PlayQuestAudio(textType, skipDelay)
-    questID = GetQuestID()
+    -- Get quest ID from Quest Log if it's open, otherwise from quest giver
+    local questID
+    if QuestMapFrame and QuestMapFrame:IsVisible() then
+        questID = C_QuestLog.GetSelectedQuest()
+    else
+        questID = GetQuestID()
+    end
+
     if not textType then
         -- Initialize textType based on visible panels
         if QuestFrameDetailPanel:IsVisible() then
@@ -377,7 +407,7 @@ questEventFrame:SetScript("OnEvent", function(self, event, ...)
 
     if textType ~= "" and QuestReaderAddonDB.autoPlayEnabled then
         PlayQuestAudio(textType)  -- Call PlayQuestAudio with textType from event
-    elseif event == "QUEST_FINISHED" then
+    elseif event == "QUEST_FINISHED" and QuestReaderAddonDB.stopDialogueOnClose then
         StopCurrentSound() -- Stop sound when the quest dialog finishes
     end
 
