@@ -39,6 +39,9 @@ INDEX_PATH = os.path.join(CACHE_DIR, "vo-index.json")
 # dialogue from footsteps, aggro grunts and other incidental creature audio.
 VO_PATTERN = re.compile(r"^sound/creature/([^/]+)/(vo_[^/]+\.ogg)$", re.IGNORECASE)
 
+# vo_<patch>_<npc>_<nn>.ogg — the patch a line was recorded for.
+PATCH_PATTERN = re.compile(r"^vo_(\d+)_", re.IGNORECASE)
+
 # Enough reference audio for a zero-shot clone to hold the voice's character.
 # Below this an NPC is better served by a fallback voice than a weak clone.
 MIN_VIABLE_CLIPS = 5
@@ -151,12 +154,69 @@ def resolve(index, name):
 
 
 def read_names(path):
-    with open(path, encoding="utf-8") as handle:
-        return [ln.strip() for ln in handle if ln.strip() and not ln.startswith("#")]
+    try:
+        with open(path, encoding="utf-8") as handle:
+            names = [ln.strip() for ln in handle
+                     if ln.strip() and not ln.startswith("#")]
+    except FileNotFoundError:
+        sys.exit(
+            f"No such file: {path}\n"
+            f"This command needs a text file listing NPC names, one per line.\n"
+            f"To generate one for a patch's voiced NPCs, run:\n"
+            f"    {os.path.basename(sys.argv[0])} patch 120 1205 1207 121 -o {path}"
+        )
+    if not names:
+        sys.exit(f"{path} contains no names.")
+    return names
 
 
 def cmd_index(args):
     build_index()
+    return 0
+
+
+def cmd_patch(args):
+    """List NPCs whose speech was recorded for particular patches.
+
+    Voice files are named vo_<patch>_<npc>_<nn>.ogg, so the patch a line was
+    recorded for is readable straight off the filename. That makes it possible
+    to narrow 3,678 voiced NPCs down to the few hundred involved in recent
+    content, without needing quest data first.
+
+    Note the prefixes are not zero-padded consistently: 12.1 appears as "121"
+    while 12.0.7 appears as "1207", so patches are matched as literal strings.
+    """
+    index = load_index()
+    wanted = set(args.patches)
+
+    counts = {}
+    for folder, clips in index.items():
+        hits = sum(1 for _, filename in clips
+                   if (m := PATCH_PATTERN.match(filename)) and m.group(1) in wanted)
+        if hits:
+            counts[folder] = hits
+
+    if not counts:
+        sys.exit(f"No voice-over found for patch(es): {', '.join(args.patches)}")
+
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    if args.min_clips:
+        ranked = [(f, c) for f, c in ranked if c >= args.min_clips]
+
+    body = "\n".join(folder.replace("_", " ") for folder, _ in ranked)
+    header = (f"# NPCs with voice-over recorded for patch(es) "
+              f"{', '.join(args.patches)}\n"
+              f"# Generated from the community listfile by voice_sources.py\n")
+
+    if args.output:
+        with open(args.output, "w", encoding="utf-8") as handle:
+            handle.write(header + body + "\n")
+        print(f"Wrote {len(ranked)} NPC names to {args.output}.", file=sys.stderr)
+    else:
+        print(header + body)
+
+    total = sum(c for _, c in ranked)
+    print(f"{len(ranked)} NPCs, {total:,} voice files.", file=sys.stderr)
     return 0
 
 
@@ -252,6 +312,14 @@ def main():
 
     sub.add_parser("index", help="download and cache the voice-over index")
 
+    p_patch = sub.add_parser("patch", help="list NPCs voiced for given patches")
+    p_patch.add_argument("patches", nargs="+",
+                         help='patch prefixes as they appear in filenames, '
+                              'e.g. 120 1205 1207 121 for Midnight')
+    p_patch.add_argument("-o", "--output")
+    p_patch.add_argument("--min-clips", type=int, default=0,
+                         help="drop NPCs with fewer than this many clips")
+
     p_lookup = sub.add_parser("lookup", help="show the voice files for an NPC")
     p_lookup.add_argument("names", nargs="+")
     p_lookup.add_argument("--limit", type=int, default=10,
@@ -270,6 +338,7 @@ def main():
     args = parser.parse_args()
     return {
         "index": cmd_index,
+        "patch": cmd_patch,
         "lookup": cmd_lookup,
         "report": cmd_report,
         "manifest": cmd_manifest,

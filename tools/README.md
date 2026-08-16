@@ -51,17 +51,41 @@ gender.
 
 ```sh
 # Build the index. Downloads the ~150 MB community listfile once and caches it.
+# Optional — any command below builds the index if it is missing.
 python3 voice_sources.py index
 
 # What speech exists for an NPC?
 python3 voice_sources.py lookup "Alleria Windrunner"
 
-# Coverage across a list of quest givers, one name per line.
+# Which NPCs were voiced for a given patch? Writes one name per line.
+python3 voice_sources.py patch 120 1200 1205 1207 121 -o npcs.txt
+
+# Coverage across a list of quest givers.
 python3 voice_sources.py report npcs.txt
 
 # FileDataIDs to feed the extraction step.
 python3 voice_sources.py manifest npcs.txt -o ids.txt
 ```
+
+On Windows use `py.exe voice_sources.py ...`.
+
+### Finding the NPCs for a patch
+
+Voice files are named `vo_<patch>_<npc>_<nn>.ogg`, so the patch a line was
+recorded for is readable straight off the filename. That narrows 3,678 voiced
+NPCs to the few hundred involved in recent content without needing quest data
+first, which is useful because the quest-to-NPC mapping is the slowest thing to
+assemble.
+
+The prefixes are not zero-padded consistently — 12.1 appears as `121` while
+12.0.7 appears as `1207` — so patches are matched as literal strings, not
+numbers. Midnight to date is `120 1200 1205 1207 121`, which covers 314 NPCs
+and 8,063 files; 76% of those NPCs clear the five-clip threshold.
+
+This list is a strong proxy for the quest givers in recent content, but it is
+not the same thing: it includes NPCs voiced for cinematics and ambient dialogue
+who give no quests, and it will miss any quest giver who is unvoiced. Treat it
+as a starting point to validate against, not the final mapping.
 
 Names are matched on whole tokens, so titles and epithets resolve in either
 direction — `Xal'atath` finds `xalatath_blade_of_the_black_empire`. Ambiguous
