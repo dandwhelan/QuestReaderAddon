@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Re-encode the shipped WAV library as Ogg Vorbis.
+"""Re-encode the shipped library's genuine PCM as Ogg Vorbis.
 
-The addon ships 5,237 clips as uncompressed 16-bit PCM, about 1.4 GB. The game
-stores its own voice-over as Ogg Vorbis and PlaySoundFile reads it natively, so
-the WAVs cost users a large download for no benefit. Re-encoding recovers most
-of that: measured on the shipped audio, quality 4 is roughly an 88% reduction.
+The library is not what its filenames suggest. Of 5,238 files carrying a
+.wav extension, 71% (4,449 files, 962 MB) are already MP3 inside a .wav
+wrapper -- the game sniffs content rather than trusting the extension, so
+they have always played correctly. Only the remaining 29% (788 files,
+392 MB) is genuine PCM. Content is sniffed here the same way, so only that
+slice is ever re-encoded: the rest is already compressed, and putting it
+through Vorbis too would decode-and-recompress audio that does not need it,
+trading quality for bytes that were mostly not there to save. Measured on
+the genuine-PCM slice, quality 4 is roughly an 88% reduction.
 
 Size matters more here than in a normal audio library. Every past content drop
 is retained in git history, so the repository is already several times the size
@@ -31,6 +36,35 @@ import sys
 # indistinguishable from the source in listening; lower starts to add artefacts
 # on sibilants, higher buys little for speech.
 DEFAULT_QUALITY = 4
+
+
+def is_genuine_pcm(path):
+    """True only for real PCM WAV, never for MP3 wearing a .wav name.
+
+    A RIFF/WAVE header is necessary but not sufficient: some files in this
+    library carry that header around an MP3 stream (a WAVE_FORMAT_MPEGLAYER3
+    fmt chunk), and re-encoding those would still be a second lossy pass.
+    The two magic-byte families that mean "already compressed" are checked
+    for directly, the same way build_soundlengths.py dispatches on content.
+    """
+    with open(path, "rb") as handle:
+        head = handle.read(4)
+        if head != b"RIFF":
+            return False
+        handle.seek(8)
+        if handle.read(4) != b"WAVE":
+            return False
+        # WAVE_FORMAT_PCM is 0x0001, little-endian, two bytes into the fmt
+        # chunk's body; anything else (0x0055 = MP3, among others) is not.
+        while True:
+            chunk = handle.read(8)
+            if len(chunk) < 8:
+                return False
+            chunk_id, size = chunk[:4], int.from_bytes(chunk[4:8], "little")
+            if chunk_id == b"fmt ":
+                fmt_tag = handle.read(2)
+                return fmt_tag == b"\x01\x00"
+            handle.seek(size + (size & 1), os.SEEK_CUR)
 
 
 def find_ffmpeg():
@@ -84,15 +118,26 @@ def main():
     if not os.path.isdir(args.directory):
         sys.exit(f"Not a directory: {args.directory}")
 
-    sources = sorted(
+    candidates = sorted(
         os.path.join(root, name)
         for root, _, files in os.walk(args.directory)
         for name in files if name.lower().endswith(".wav"))
-    if not sources:
+    if not candidates:
         sys.exit(f"No .wav files in {args.directory}.")
 
+    sources = [s for s in candidates if is_genuine_pcm(s)]
+    already_compressed = len(candidates) - len(sources)
+    if not sources:
+        sys.exit(f"All {len(candidates):,} .wav file(s) in {args.directory} "
+                 f"are already compressed audio in a .wav wrapper. "
+                 f"Nothing to convert.")
+
     before = sum(os.path.getsize(s) for s in sources)
-    print(f"{len(sources):,} file(s), {human(before)}.", file=sys.stderr)
+    print(f"{len(sources):,} genuine-PCM file(s), {human(before)}.",
+          file=sys.stderr)
+    if already_compressed:
+        print(f"  ({already_compressed:,} more .wav file(s) are already "
+              f"compressed audio and are left alone.)", file=sys.stderr)
 
     ffmpeg = find_ffmpeg()
     destination = args.output or args.directory
