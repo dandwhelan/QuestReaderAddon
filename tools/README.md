@@ -125,20 +125,24 @@ Then select all the results and export once.
 Files arrive as `.ogg` — the format the game stores natively — so no transcoding
 is needed before they are used as cloning references.
 
-### Selecting an exact set with Paste Selection
+### Selecting the results
 
-When the set is not a clean search — a curated list of quest givers, say —
-wow.export's **Paste Selection** takes a list from the clipboard and selects
-those entries. Generate the list, copy it, paste it in, export once:
+The audio tab has no way to import a list of IDs, so the search box is the
+selection mechanism. Filter, then select the whole result set — click the first
+row and Shift+Click the last, or Ctrl+A with the list focused — and press
+**Export Selected**. The counter above the search box confirms how many are
+selected.
 
-```sh
-python3 voice_sources.py manifest --patch 120 1200 1205 1207 121 \
-    --per-npc 8 -o ids.txt
-```
+Verified on wow.export v0.2.19: searching `vo_121` returns 347 files, the whole
+of patch 12.1's voice-over, exportable in one action.
 
-Two settings worth knowing: regex filtering is **off by default** in wow.export
-and has to be enabled in settings, and the audio tab has quick filters for
-OGG/MP3 — set it to OGG, since all voice-over is Ogg Vorbis.
+The audio tab also has quick filters for OGG/MP3/UNK. Set it to OGG, since all
+voice-over is Ogg Vorbis.
+
+Because selection happens through the search box, prefer filters that describe
+the set you want (`vo_121_`, an NPC folder name) over generating an ID list.
+`manifest` remains useful for feeding a command-line extractor, and for knowing
+in advance how many files a given selection should produce.
 
 ### Command-line extraction
 
