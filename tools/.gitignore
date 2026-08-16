@@ -1,0 +1,2 @@
+# Cached listfile (~150 MB) and derived index — rebuild with: voice_sources.py index
+.cache/
