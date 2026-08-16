@@ -303,6 +303,58 @@ auto-accepted quests, and cannot be voice-matched without a manual assignment.
 The SavedVariables file is parsed rather than executed, so a file coming back
 from someone else's game client cannot run code.
 
+## Reducing the library size
+
+The shipped library is **not** what its filenames suggest. Of 5,238 files
+carrying a `.wav` extension:
+
+| Actual format | Files | Size | Share |
+| --- | ---: | ---: | ---: |
+| MP3 | 4,449 | 962 MB | 71% |
+| PCM WAV | 788 | 392 MB | 29% |
+
+The game sniffs content rather than trusting the extension, so the mislabelled
+MP3s play correctly and always have. But it means most of the library is
+already compressed, and re-encoding it would be a lossy-to-lossy transcode:
+quality lost for little space gained.
+
+The real saving is confined to the 392 MB of genuine PCM, which re-encodes to
+roughly 50 MB — about **340 MB off the download**, not the whole 1.3 GB.
+
+```sh
+python3 convert_library.py ../Sounds --dry-run     # estimate from a sample
+python3 convert_library.py ../Sounds -o ../Sounds-ogg
+python3 build_soundlengths.py ../Sounds-ogg -o ../SoundLengths.lua
+```
+
+`--dry-run` converts a spread of the library and extrapolates, rather than
+assuming a ratio. Originals are kept unless `--replace` is given. Requires
+ffmpeg, either on PATH or via `pip install imageio-ffmpeg`.
+
+Worth knowing that git history holds every past content drop, so the repository
+is several times the working tree regardless of what the working tree contains.
+Shrinking the audio helps users downloading a release; it does not shrink a
+clone.
+
+## Choosing fallback voices
+
+NPCs with no reference audio need a stand-in. Assigning at random makes a dwarf
+sound like a dryad, so `npc_traits.py` resolves what each NPC actually is and
+groups them, letting one chosen voice serve everyone sharing a race and sex.
+
+```sh
+python3 npc_traits.py "Elder Hagar" "Zul'jarra"
+python3 npc_traits.py --names-file npcs.txt --groups
+```
+
+The chain is `Creature` for name and creature type, then
+`Creature -> CreatureDisplayInfo -> CreatureDisplayInfoExtra` for the model's
+race and sex. Coverage is partial: NPCs whose model carries no extended display
+record resolve only to their creature type, and NPCs too new to appear in the
+published tables do not resolve at all. In practice this matters less than it
+sounds, because the NPCs that fail to resolve are mostly unique named
+characters, and those are the ones that already have reference audio to clone.
+
 ## Generating the audio
 
 `synthesize.py` matches each passage's speaker to that NPC's reference clips

@@ -81,10 +81,66 @@ def wav_duration(path):
                 handle.seek(chunk_size + (chunk_size & 1), os.SEEK_CUR)
 
 
+MPEG_RATES = {  # version, layer -> bitrate table index
+    (3, 1): [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448],
+    (3, 2): [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384],
+    (3, 3): [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320],
+    (2, 1): [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256],
+    (2, 2): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160],
+}
+MPEG_SAMPLE_RATES = {3: [44100, 48000, 32000], 2: [22050, 24000, 16000],
+                     0: [11025, 12000, 8000]}
+
+
+def mp3_duration(path):
+    """Seconds of an MPEG audio file.
+
+    Much of the shipped library is MP3 carrying a .wav extension — the game
+    sniffs content rather than trusting the extension, so it plays regardless.
+    Duration is computed from the first frame header, which is accurate for the
+    constant-bitrate encodes used here.
+    """
+    with open(path, "rb") as handle:
+        data = handle.read()
+
+    offset = 0
+    if data[:3] == b"ID3":
+        # Syncsafe integer: seven bits per byte.
+        size = 0
+        for byte in data[6:10]:
+            size = (size << 7) | (byte & 0x7F)
+        offset = 10 + size
+
+    limit = min(len(data) - 4, offset + 200000)
+    while offset < limit:
+        if data[offset] == 0xFF and (data[offset + 1] & 0xE0) == 0xE0:
+            header = data[offset:offset + 4]
+            version = (header[1] >> 3) & 0x03
+            layer = (header[1] >> 1) & 0x03
+            bitrate_index = (header[2] >> 4) & 0x0F
+            rate_index = (header[2] >> 2) & 0x03
+            layer_number = {1: 3, 2: 2, 3: 1}.get(layer)
+            rates = MPEG_RATES.get((version, layer_number))
+            if (rates and 0 < bitrate_index < 15 and rate_index < 3
+                    and version in MPEG_SAMPLE_RATES):
+                bitrate = rates[bitrate_index] * 1000
+                if bitrate:
+                    return (len(data) - offset) * 8 / bitrate
+        offset += 1
+    raise AudioError("no MPEG frame header found")
+
+
 def duration(path):
-    if path.lower().endswith(".ogg"):
+    """Dispatch on content, not extension — the two disagree in this library."""
+    with open(path, "rb") as handle:
+        magic = handle.read(4)
+    if magic[:4] == b"OggS":
         return ogg_duration(path)
-    return wav_duration(path)
+    if magic[:4] == b"RIFF":
+        return wav_duration(path)
+    if magic[:3] == b"ID3" or (magic[0] == 0xFF and (magic[1] & 0xE0) == 0xE0):
+        return mp3_duration(path)
+    raise AudioError(f"unrecognised audio container {magic!r}")
 
 
 def scan(directory):
