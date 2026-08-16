@@ -191,6 +191,37 @@ captures does not mean they are on disk yet. The file lands at:
 World of Warcraft/_retail_/WTF/Account/<ACCOUNT>/SavedVariables/QuestReaderHarvester.lua
 ```
 
+## Fetching quest text from Wowhead instead
+
+`wowhead_quests.py` gets the same records without playing the content. Wowhead
+holds quest text because players upload it, so it can be read back per quest ID.
+
+```sh
+python3 wowhead_quests.py --ids missing.txt -o passages.json
+```
+
+Feed it the quest IDs `/qrmissing` reports, or any list one per line. It
+extracts the description, progress and completion text plus the quest giver and
+turn-in NPC, assigning the giver to the offer and the turn-in NPC to the rest.
+Pages are cached, so reruns cost nothing and only new IDs are fetched.
+
+Which route to use:
+
+| | Coverage | Freshness | Cost |
+| --- | --- | --- | --- |
+| Harvester | only what you play | authoritative | play time |
+| Wowhead | everything at once | lags a patch by days | third-party data |
+
+**Wowhead's terms of use do not permit scraping.** This is the route the
+original project relied on — the addon README's note that "the source I utilize
+for quest info can sometimes take several days" describes exactly this lag —
+but it is a deliberate choice rather than a safe default. Requests are paced at
+1.5s by default and cached; raise `--delay` rather than lowering it.
+
+The practical combination is Wowhead for bulk and the harvester for anything it
+lacks, since brand-new content is where its coverage is thinnest and where a
+live client is authoritative.
+
 ## Preparing text for synthesis
 
 `harvest_export.py` reads that file and emits one record per spoken passage —
