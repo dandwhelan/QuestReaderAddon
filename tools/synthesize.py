@@ -223,7 +223,7 @@ def match_voice(voices, npc_name, fallback=None):
     return None
 
 
-def encode_ogg(wav_path, ogg_path, quality=4, normalize=True):
+def encode_ogg(wav_path, ogg_path, quality=4, normalize=True, speed=1.0):
     """Trim, level and encode to Ogg Vorbis, the format game and addon share.
 
     Synthesis output varies in level between clips and often carries a beat of
@@ -238,6 +238,10 @@ def encode_ogg(wav_path, ogg_path, quality=4, normalize=True):
         # loudnorm resamples to 192 kHz internally; bring it back to the rate
         # the rest of the library uses.
         filters.append("aresample=24000")
+    if abs(speed - 1.0) > 0.001:
+        # atempo changes tempo only, unlike asetrate, which moves pitch along
+        # with it — a faster read should not also sound higher-pitched.
+        filters.append(f"atempo={speed:.3f}")
 
     command = ["ffmpeg", "-loglevel", "error", "-y", "-i", wav_path]
     if filters:
@@ -379,6 +383,10 @@ def main():
                         help="skip Ogg encoding and leave WAV output")
     parser.add_argument("--no-normalize", action="store_true",
                         help="skip loudness matching and silence trimming")
+    parser.add_argument("--speed", type=float, default=1.0,
+                        help="playback speed applied at encode time, e.g. "
+                             "1.1 for 10%% faster (default 1.0). Pitch is "
+                             "held constant; only pace changes")
     parser.add_argument("--lexicon",
                         default=os.path.join(
                             os.path.dirname(os.path.abspath(__file__)),
@@ -498,7 +506,8 @@ def main():
         try:
             engine.synthesize(text, clips, npc or "(no NPC)", wav_target)
             if not args.keep_wav:
-                encode_ogg(wav_target, target, normalize=not args.no_normalize)
+                encode_ogg(wav_target, target,
+                           normalize=not args.no_normalize, speed=args.speed)
         except Exception as exc:  # engine and codec failures are both fatal
             failures += 1                                # to this clip only
             print(f"  failed {os.path.basename(target)} ({npc}): {exc}",
