@@ -406,6 +406,23 @@ attack barks was cloned from shouting. Clips are now ranked to prefer ordinary
 dialogue over combat and reaction lines, and to prefer a usable length
 (2.5–20 s) over grunts.
 
+How much reference to use is set by `--reference-seconds`, defaulting to 60.
+It was 12, on the documented advice that a large reference set makes the model
+average across it and read flat. Compared by ear at 12, 30 and 60 seconds on
+an NPC with 103 clips, 60 won clearly. The advice is not wrong — it is aimed
+at getting a lively read, where the goal here is a recognisable one, and these
+are quest givers a player already knows the sound of. NPCs with only a handful
+of clips never reach the budget and are unaffected either way.
+
+**The combat filter depends on filenames describing their contents, and recent
+ones do not.** Everything recorded for Midnight is named
+`vo_<patch>_<npc>_<fileID>.ogg`; across 446 clips extracted for 12.1 NPCs, not
+one matched any combat marker. For that content the ranking collapses to the
+duration rules alone, which cannot distinguish a shout from a greeting. It is
+still a real improvement on alphabetical — length is a decent proxy for
+connected speech — but the barks it was written to exclude will pass straight
+through. Separating those needs the audio inspected, not its name.
+
 Generated audio is trimmed and levelled before encoding. Synthesis output varies
 in level between clips and carries a beat of silence at each end, which is
 audible as lines jumping in volume against the game's own dialogue. Each clip is
@@ -422,11 +439,47 @@ already exist, and — most usefully — which NPCs have no reference audio and 
 need a fallback voice chosen. Planning needs no GPU and no model, so it is worth
 running before installing anything.
 
-### Installing the engine
+### Which engine
 
-Coqui's original `TTS` package is archived and does not install on Python 3.12
-or newer. The maintained fork publishes the same `TTS` module, so nothing in
-this tool changes — only what you install:
+Two are supported, chosen with `--engine`. **F5-TTS is the default**, because
+it sounds materially closer to the NPC being cloned. Compared on identical
+reference audio from Riftblade Maella, against the spectrum of her own clips:
+
+| Band (dB relative to 250–800 Hz) | Her voice | XTTS error | F5 error |
+| --- | ---: | ---: | ---: |
+| 80–250 Hz — weight | −2.6 | 3.2 | **2.1** |
+| 800 Hz–2.5 kHz — presence | −5.0 | 2.0 | **0.4** |
+| 6–11 kHz — air | −18.8 | 5.4 | **3.5** |
+
+The presence band is the one that matters: articulation and emphasis live
+there, and XTTS scoops it while adding weight and air. That combination is
+audible as boomy, over-bright, and vague about which words are stressed — a
+clone that lands near the right voice without sounding like it. F5 is closer
+in every band and nearly exact in that one. A listening test agreed.
+
+They do not share an environment comfortably, so give each its own venv.
+
+### Installing F5-TTS (default)
+
+```sh
+python -m venv .venv-f5
+.venv-f5/Scripts/python -m pip install "torch==2.8.*" "torchaudio==2.8.*" \
+    --index-url https://download.pytorch.org/whl/cu128
+.venv-f5/Scripts/python -m pip install f5-tts
+.venv-f5/Scripts/python -m pip uninstall -y torchcodec
+```
+
+Uninstalling torchcodec is required, not tidying. F5 declares it, but it loads
+only against FFmpeg's *shared* libraries and Windows ffmpeg builds are static,
+so it throws `WinError 127` partway through generation — after the model has
+loaded, which makes it look like a model problem. Removed, F5 falls back to
+torchaudio and works.
+
+F5 needs a transcript of the reference audio, which XTTS does not. That is
+handled automatically: clips are concatenated and passed through the Whisper
+model F5 bundles, once per NPC rather than once per passage.
+
+### Installing XTTS (alternative)
 
 ```sh
 python -m venv .venv
@@ -441,12 +494,8 @@ Every part of that is load-bearing:
 | --- | --- |
 | `coqui-tts` | `TTS` itself is archived and will not install on Python 3.12+; the fork supports 3.10–3.14 and provides the same `TTS` module |
 | `transformers<5` | coqui-tts declares no upper bound but does not import under 5.x, which removed `isin_mps_friendly` |
-| `torch==2.8.*` | from 2.9 torch requires torchcodec for audio IO, and torchcodec needs FFmpeg shared libraries that Windows ffmpeg builds do not ship |
+| `torch==2.8.*` | from 2.9 torch requires torchcodec for audio IO, with the same shared-library problem described above |
 | the torch index URL | PyPI's Windows torch wheel is CPU-only; CUDA needs this index |
-
-On a machine where torchcodec *can* load its libraries, newer torch works too —
-add the `[codec]` extra to coqui-tts and drop the version pin. The pin is the
-reliable route on Windows, not the only one.
 
 Verify the GPU is actually being used before a long run — a silent fall back to
 CPU is the difference between minutes and hours:

@@ -24,6 +24,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from voice_sources import normalize as fold_name
@@ -34,18 +35,41 @@ from build_soundlengths import duration as audio_duration
 REFERENCE_CLIPS = 6
 XTTS_MODEL = "tts_models/multilingual/multi-dataset/xtts_v2"
 
-# Zero-shot cloning wants ordinary connected speech. Too short carries no
-# prosody, but piling on more is actively harmful: the model averages prosody
-# across everything it is given, so a large reference set converges on a flat,
-# characterless read. Around 8-15 seconds total is the documented sweet spot
-# for XTTS-v2 and F5-TTS alike, which is a budget rather than a clip count.
+# F5-TTS resembles the source voice more closely than XTTS on identical
+# references — measured against Riftblade Maella's own clips, its error in the
+# 800 Hz-2.5 kHz presence band, where articulation and emphasis sit, was
+# 0.4 dB against XTTS's 2.0 dB, and it was closer in every other band too.
+F5_MODEL = "F5TTS_v1_Base"
+
+# F5 clips its reference internally, so the long budget that suits XTTS only
+# wastes Whisper time here.
+F5_REFERENCE_SECONDS = 15.0
+
+# Zero-shot cloning wants ordinary connected speech, budgeted by duration
+# rather than counted in clips.
+#
+# This was 12 seconds, on the documented advice that a large reference set
+# makes the model average across it and read flat. Compared by ear against 30
+# and 60 on an NPC with 103 clips, 60 was the clear winner: the resemblance to
+# the actual voice matters more here than the flattening costs, because these
+# are quest givers a player already knows the sound of. The advice is not
+# wrong, it is just aimed at a different goal. Override per run with
+# --reference-seconds; NPCs with only a handful of clips will fall short of
+# the budget anyway and are unaffected.
 MIN_REFERENCE_SECONDS = 2.5
 MAX_REFERENCE_SECONDS = 15.0
-REFERENCE_BUDGET_SECONDS = 12.0
+REFERENCE_BUDGET_SECONDS = 60.0
 
 # Combat and reaction lines are shouted, clipped and often processed. Cloning
 # from them produces a voice that sounds permanently angry, so they are used
 # only when nothing else is available.
+#
+# This only bites where filenames describe their contents. Older sets do
+# ("..._attack_01.ogg"), but everything recorded for Midnight is named
+# vo_<patch>_<npc>_<fileID>.ogg — across 446 clips extracted for 12.1 NPCs,
+# not one matched any marker below. Where that is so, selection falls through
+# to the duration rules, which is a weaker filter than it looks: nothing here
+# can tell a shout from a greeting. Judging that needs the audio itself.
 COMBAT_MARKERS = ("attack", "aggro", "death", "pain", "wound", "kill",
                   "flee", "taunt", "battle", "spell", "cast", "grunt",
                   "laugh", "cheer", "yell", "scream")
@@ -54,6 +78,15 @@ COMBAT_MARKERS = ("attack", "aggro", "death", "pain", "wound", "kill",
 # library ranges from -13 to -20, so normalising also makes it more consistent
 # than it is today.
 TARGET_LUFS = -16.0
+
+# Pitch matching was tried here and removed. A clone can sit an interval off
+# the voice it came from — measured at +6.5% on Tak'lejo against -1.7% on
+# Riftblade Maella — and correcting it is a plain frequency ratio, so it
+# looked worth doing. Measured over five clips it improved four and sent the
+# fifth further out, because the median F0 of a passage is not stable enough
+# to steer by: on a clip whose pitch is bimodal the estimator's median jumps
+# between modes, and the correction then points the wrong way. Matching a
+# whole voice needs a target measured across a speaker, not one utterance.
 
 
 def index_reference(directory):
@@ -106,8 +139,7 @@ def reference_seconds(path):
         return None
 
 
-def pick_references(clips, budget=REFERENCE_BUDGET_SECONDS,
-                    limit=REFERENCE_CLIPS):
+def pick_references(clips, budget=REFERENCE_BUDGET_SECONDS, limit=None):
     """Choose the clips most likely to yield a clean, characterful clone.
 
     Two things this gets right that the obvious approach does not. Selection is
@@ -116,6 +148,13 @@ def pick_references(clips, budget=REFERENCE_BUDGET_SECONDS,
     taking a fixed number of clips: handing the model everything available makes
     it average across the lot and read flatter, so more reference is worse.
     """
+    # The clip count is a guard against pathologically short clips, not a
+    # control in its own right — the budget is what governs. Scaling it with
+    # the budget keeps a raised budget from being silently capped here.
+    if limit is None:
+        limit = max(REFERENCE_CLIPS,
+                    int(budget / MIN_REFERENCE_SECONDS) + 1)
+
     scored = []
     for path in clips:
         name = os.path.basename(path).lower()
@@ -182,29 +221,104 @@ def encode_ogg(wav_path, ogg_path, quality=4, normalize=True):
     os.remove(wav_path)
 
 
-def load_engine(device):
-    # XTTS ships under a licence the model asks the user to accept at an
-    # interactive prompt. An unattended run would block on it indefinitely,
-    # so the acceptance is recorded up front rather than waited for.
-    os.environ.setdefault("COQUI_TOS_AGREED", "1")
-    try:
-        from TTS.api import TTS
-    except ImportError as exc:
-        # Report what actually failed. The import pulls in torch, transformers
-        # and torchcodec, and a version clash in any of them surfaces here as
-        # an ImportError that has nothing to do with the package being absent.
-        sys.exit(
-            f"Could not import Coqui TTS:\n    {exc}\n\n"
-            f"The original 'TTS' package is archived and will not install on\n"
-            f"Python 3.12 or newer. Use the maintained fork, which provides\n"
-            f"the same TTS module:\n"
-            f"    pip install \"coqui-tts[codec]\" \"transformers<5\"\n\n"
-            f"Both parts matter. The 'codec' extra pulls in torchcodec, which\n"
-            f"torch 2.9+ requires for audio IO, and coqui-tts declares no\n"
-            f"upper bound on transformers despite not importing under 5.x.\n\n"
-            f"Use --dry-run to plan the work without generating.")
-    print(f"Loading {XTTS_MODEL} on {device} ...", file=sys.stderr)
-    return TTS(XTTS_MODEL).to(device)
+class XttsEngine:
+    """Coqui XTTS-v2. Conditions on a list of clips, needs no transcript."""
+
+    def __init__(self, device, language):
+        # XTTS ships under a licence the model asks the user to accept at an
+        # interactive prompt. An unattended run would block on it
+        # indefinitely, so the acceptance is recorded up front.
+        os.environ.setdefault("COQUI_TOS_AGREED", "1")
+        try:
+            from TTS.api import TTS
+        except ImportError as exc:
+            # Report what actually failed. The import pulls in torch,
+            # transformers and torchcodec, and a version clash in any of them
+            # surfaces here as an ImportError that has nothing to do with the
+            # package being absent.
+            sys.exit(
+                f"Could not import Coqui TTS:\n    {exc}\n\n"
+                f"The original 'TTS' package is archived and will not install\n"
+                f"on Python 3.12 or newer. Use the maintained fork, which\n"
+                f"provides the same TTS module:\n"
+                f"    pip install coqui-tts \"transformers<5\"\n\n"
+                f"Use --dry-run to plan the work without generating.")
+        self.language = language
+        print(f"Loading {XTTS_MODEL} on {device} ...", file=sys.stderr)
+        self.api = TTS(XTTS_MODEL).to(device)
+
+    def synthesize(self, text, clips, npc, wav_path):
+        self.api.tts_to_file(text=text, speaker_wav=clips,
+                             language=self.language, file_path=wav_path)
+
+
+class F5Engine:
+    """F5-TTS. Closer to the source voice than XTTS on the same references.
+
+    It wants one reference clip and its transcript, where XTTS takes a list
+    and needs no text at all. Both gaps are closed here: the chosen clips are
+    concatenated into one file, and the transcript is recovered by the
+    Whisper pass F5 already bundles. Both are cached per NPC, so a speaker is
+    prepared once no matter how many passages they have.
+    """
+
+    def __init__(self, device, language):
+        try:
+            from f5_tts.api import F5TTS
+            from f5_tts.infer.utils_infer import preprocess_ref_audio_text
+        except ImportError as exc:
+            sys.exit(
+                f"Could not import F5-TTS:\n    {exc}\n\n"
+                f"    pip install f5-tts\n"
+                f"    pip uninstall torchcodec\n\n"
+                f"Removing torchcodec is not optional on Windows. F5 declares\n"
+                f"it, but it only loads against FFmpeg's shared libraries and\n"
+                f"the usual Windows ffmpeg builds are static, so importing it\n"
+                f"fails at generation time. Without it F5 falls back to\n"
+                f"torchaudio and works.\n\n"
+                f"It does not share an environment with coqui-tts easily;\n"
+                f"a separate venv per engine is the path of least resistance.\n\n"
+                f"Use --dry-run to plan the work without generating.")
+        self._preprocess = preprocess_ref_audio_text
+        print(f"Loading {F5_MODEL} on {device or 'default device'} ...",
+              file=sys.stderr)
+        self.model = F5TTS(model=F5_MODEL, device=device)
+        self.prepared = {}
+
+    def _prepare(self, clips, npc):
+        """One reference file plus its transcript, built once per NPC."""
+        if npc in self.prepared:
+            return self.prepared[npc]
+
+        handle, listing = tempfile.mkstemp(suffix=".txt", text=True)
+        with os.fdopen(handle, "w", encoding="utf-8") as out:
+            for clip in clips:
+                # The concat demuxer treats a quote as syntax, so a path
+                # containing one would silently truncate the reference set.
+                out.write("file '%s'\n"
+                          % os.path.abspath(clip).replace("'", r"'\''"))
+        merged = tempfile.mktemp(suffix=".wav")
+        subprocess.run(
+            ["ffmpeg", "-loglevel", "error", "-y", "-f", "concat",
+             "-safe", "0", "-i", listing, "-t", str(F5_REFERENCE_SECONDS),
+             "-ac", "1", "-ar", "24000", merged], check=True)
+        os.remove(listing)
+
+        audio, transcript = self._preprocess(merged, "", show_info=lambda *a: None)
+        self.prepared[npc] = (audio, transcript)
+        print(f"  {npc}: reference transcribed as "
+              f"\"{transcript.strip()[:60]}...\"", file=sys.stderr)
+        return self.prepared[npc]
+
+    def synthesize(self, text, clips, npc, wav_path):
+        audio, transcript = self._prepare(clips, npc)
+        self.model.infer(ref_file=audio, ref_text=transcript, gen_text=text,
+                         file_wave=wav_path, remove_silence=False,
+                         show_info=lambda *a: None)
+
+
+def load_engine(name, device, language):
+    return (F5Engine if name == "f5" else XttsEngine)(device, language)
 
 
 def main():
@@ -218,9 +332,20 @@ def main():
     parser.add_argument("--dry-run", action="store_true",
                         help="report the plan without generating")
     parser.add_argument("--only", help="comma-separated quest IDs")
+    parser.add_argument("--engine", choices=("f5", "xtts"), default="f5",
+                        help="f5 (default) resembles the source voice more "
+                             "closely; xtts is the older path. They do not "
+                             "share an environment well — expect one venv each")
     parser.add_argument("--device", default="cuda",
                         help="cuda or cpu (default cuda)")
     parser.add_argument("--language", default="en")
+    parser.add_argument("--reference-seconds", type=float,
+                        default=REFERENCE_BUDGET_SECONDS,
+                        help=f"seconds of reference audio to condition on "
+                             f"(default {REFERENCE_BUDGET_SECONDS:.0f}). More "
+                             f"can improve how much the clone resembles the "
+                             f"NPC; too much averages its delivery flat. "
+                             f"XTTS-v2 accepts up to about 30")
     parser.add_argument("--keep-wav", action="store_true",
                         help="skip Ogg encoding and leave WAV output")
     parser.add_argument("--no-normalize", action="store_true",
@@ -290,7 +415,8 @@ def main():
             novoice[passage.get("npcName") or "(no NPC)"] += 1
             continue
 
-        planned.append((target, passage["text"], pick_references(clips),
+        planned.append((target, passage["text"],
+                        pick_references(clips, budget=args.reference_seconds),
                         passage.get("npcName")))
 
     print(f"\n  to generate : {len(planned):>5}", file=sys.stderr)
@@ -311,13 +437,12 @@ def main():
         print("\nNothing to do.", file=sys.stderr)
         return 0
 
-    engine = load_engine(args.device)
+    engine = load_engine(args.engine, args.device, args.language)
     failures = 0
     for position, (target, text, clips, npc) in enumerate(planned, 1):
         wav_target = target[:-4] + ".wav" if target.endswith(".ogg") else target
         try:
-            engine.tts_to_file(text=text, speaker_wav=clips,
-                               language=args.language, file_path=wav_target)
+            engine.synthesize(text, clips, npc or "(no NPC)", wav_target)
             if not args.keep_wav:
                 encode_ogg(wav_target, target, normalize=not args.no_normalize)
         except Exception as exc:  # engine and codec failures are both fatal
