@@ -183,13 +183,26 @@ def encode_ogg(wav_path, ogg_path, quality=4, normalize=True):
 
 
 def load_engine(device):
+    # XTTS ships under a licence the model asks the user to accept at an
+    # interactive prompt. An unattended run would block on it indefinitely,
+    # so the acceptance is recorded up front rather than waited for.
+    os.environ.setdefault("COQUI_TOS_AGREED", "1")
     try:
         from TTS.api import TTS
-    except ImportError:
+    except ImportError as exc:
+        # Report what actually failed. The import pulls in torch, transformers
+        # and torchcodec, and a version clash in any of them surfaces here as
+        # an ImportError that has nothing to do with the package being absent.
         sys.exit(
-            "Coqui TTS is not installed, so audio cannot be generated.\n"
-            "    pip install TTS\n"
-            "Use --dry-run to plan the work without it.")
+            f"Could not import Coqui TTS:\n    {exc}\n\n"
+            f"The original 'TTS' package is archived and will not install on\n"
+            f"Python 3.12 or newer. Use the maintained fork, which provides\n"
+            f"the same TTS module:\n"
+            f"    pip install \"coqui-tts[codec]\" \"transformers<5\"\n\n"
+            f"Both parts matter. The 'codec' extra pulls in torchcodec, which\n"
+            f"torch 2.9+ requires for audio IO, and coqui-tts declares no\n"
+            f"upper bound on transformers despite not importing under 5.x.\n\n"
+            f"Use --dry-run to plan the work without generating.")
     print(f"Loading {XTTS_MODEL} on {device} ...", file=sys.stderr)
     return TTS(XTTS_MODEL).to(device)
 

@@ -38,7 +38,8 @@ python3 build_soundlengths.py ./generated -o ../SoundLengths.lua
 Then extract the audio listed in `ids.txt` with wow.export (see *Extracting the
 audio* below), and you have matched text-and-voice pairs ready for synthesis.
 
-On Windows use `py.exe` in place of `python3`.
+On Windows use `py.exe` in place of `python3` throughout this guide — every
+`python3` example below, not just this walkthrough.
 
 Step 2 can be replaced by the harvester addon if you would rather read text from
 a live client than from Wowhead — see *Harvesting quest text*. The two produce
@@ -421,16 +422,64 @@ already exist, and — most usefully — which NPCs have no reference audio and 
 need a fallback voice chosen. Planning needs no GPU and no model, so it is worth
 running before installing anything.
 
-Generation itself needs `pip install TTS` and, to be practical, a GPU. Runs are
-resumable: existing output is skipped, so an interrupted run continues rather
-than starting over, and a failed clip can be retried by rerunning.
+### Installing the engine
 
-Ogg encoding shells out to `ffmpeg`. Use `--keep-wav` to skip it.
+Coqui's original `TTS` package is archived and does not install on Python 3.12
+or newer. The maintained fork publishes the same `TTS` module, so nothing in
+this tool changes — only what you install:
 
-**This script has not been run against a real model.** Its planning, matching
-and resume logic are tested; the generation call itself is not, because no GPU
-or TTS install was available where it was written. Expect to adjust it on first
-use.
+```sh
+python -m venv .venv
+.venv/Scripts/python -m pip install "torch==2.8.*" "torchaudio==2.8.*" \
+    --index-url https://download.pytorch.org/whl/cu128
+.venv/Scripts/python -m pip install coqui-tts "transformers<5"
+```
+
+Every part of that is load-bearing:
+
+| Piece | Why |
+| --- | --- |
+| `coqui-tts` | `TTS` itself is archived and will not install on Python 3.12+; the fork supports 3.10–3.14 and provides the same `TTS` module |
+| `transformers<5` | coqui-tts declares no upper bound but does not import under 5.x, which removed `isin_mps_friendly` |
+| `torch==2.8.*` | from 2.9 torch requires torchcodec for audio IO, and torchcodec needs FFmpeg shared libraries that Windows ffmpeg builds do not ship |
+| the torch index URL | PyPI's Windows torch wheel is CPU-only; CUDA needs this index |
+
+On a machine where torchcodec *can* load its libraries, newer torch works too —
+add the `[codec]` extra to coqui-tts and drop the version pin. The pin is the
+reliable route on Windows, not the only one.
+
+Verify the GPU is actually being used before a long run — a silent fall back to
+CPU is the difference between minutes and hours:
+
+```sh
+.venv/Scripts/python -c "import torch;print(torch.cuda.is_available())"
+```
+
+XTTS asks the user to accept its licence at an interactive prompt on first
+load. `synthesize.py` records the acceptance itself, so unattended runs do not
+block; set `COQUI_TOS_AGREED=0` beforehand if you would rather be asked.
+
+Runs are resumable: existing output is skipped, so an interrupted run continues
+rather than starting over, and a failed clip can be retried by rerunning.
+
+Ogg encoding shells out to `ffmpeg`, which must be on PATH — `scoop install
+ffmpeg` needs no administrator rights. Use `--keep-wav` to skip encoding.
+
+**Generation is confirmed working end-to-end**, on Windows 11 with Python 3.13,
+torch 2.8.0+cu128 on an RTX 3070 Ti, coqui-tts 0.27.5 and ffmpeg 9. A two-clip
+run completed with no failures and produced exactly what the addon expects:
+Ogg Vorbis, 24 kHz, mono.
+
+Getting there needed three fixes that are worth knowing about, because none of
+them announces itself clearly:
+
+- `pip install TTS` cannot work on Python 3.12+; the package is archived.
+- coqui-tts does not import under transformers 5.x, which it nonetheless
+  permits.
+- torch 2.9+ hard-requires torchcodec for audio IO, and torchcodec needs
+  FFmpeg *shared* libraries, which the usual Windows ffmpeg builds do not
+  ship — they are static. Holding torch at 2.8 avoids that dependency
+  entirely, which is why the install above pins it.
 
 ## Rebuilding the index
 
