@@ -1,8 +1,48 @@
-# Voice source tooling
+# Audio generation tooling
 
-Tooling for the audio generation pipeline. This directory covers the first half
-of the problem — finding and extracting the in-game speech that AI voice models
-are cloned from. It does not generate anything yet.
+Tooling for regenerating the addon's quest voiceovers. It gathers the two
+inputs synthesis needs — the text to speak, and reference audio for the voice
+that speaks it — and does not generate audio itself yet.
+
+## Start here
+
+Run in this order. Each step's output is the next step's input; nothing has to
+exist beforehand.
+
+```sh
+# 1. Which quests have no audio?  ->  missing.txt
+python3 missing_quests.py -o missing.txt
+
+# 2. What do they say, and who says it?  ->  passages.json
+python3 wowhead_quests.py --ids missing.txt -o passages.json
+
+# 3. Which NPCs need a cloned voice?  ->  npcs.txt
+python3 -c "import json;print('\n'.join(sorted({p['npcName'] for p in json.load(open('passages.json'))['passages'] if p['npcName']})))" > npcs.txt
+
+# 4. Do those NPCs have usable reference audio?
+python3 voice_sources.py report npcs.txt
+
+# 5. Which audio files to extract  ->  ids.txt
+python3 voice_sources.py manifest npcs.txt --per-npc 8 -o ids.txt
+```
+
+Then extract the audio listed in `ids.txt` with wow.export (see *Extracting the
+audio* below), and you have matched text-and-voice pairs ready for synthesis.
+
+On Windows use `py.exe` in place of `python3`.
+
+Step 2 can be replaced by the harvester addon if you would rather read text from
+a live client than from Wowhead — see *Harvesting quest text*. The two produce
+the same records.
+
+### What each file is
+
+| File | Produced by | Contains |
+| --- | --- | --- |
+| `missing.txt` | step 1 | quest IDs with no audio, one per line |
+| `passages.json` | step 2 | text and speaker for each quest passage |
+| `npcs.txt` | step 3 | the NPC names to clone |
+| `ids.txt` | step 5 | FileDataIDs to extract in wow.export |
 
 ## Why this exists
 
