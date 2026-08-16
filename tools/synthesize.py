@@ -27,11 +27,29 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from voice_sources import normalize as fold_name
+from build_soundlengths import duration as audio_duration
 
 # Clips used to condition the clone. More does not reliably improve the voice,
 # and every extra second is loaded per NPC.
 REFERENCE_CLIPS = 6
 XTTS_MODEL = "tts_models/multilingual/multi-dataset/xtts_v2"
+
+# Zero-shot cloning wants ordinary connected speech. Too short carries no
+# prosody; very long clips slow conditioning without improving it.
+MIN_REFERENCE_SECONDS = 2.5
+MAX_REFERENCE_SECONDS = 20.0
+
+# Combat and reaction lines are shouted, clipped and often processed. Cloning
+# from them produces a voice that sounds permanently angry, so they are used
+# only when nothing else is available.
+COMBAT_MARKERS = ("attack", "aggro", "death", "pain", "wound", "kill",
+                  "flee", "taunt", "battle", "spell", "cast", "grunt",
+                  "laugh", "cheer", "yell", "scream")
+
+# Matching the game's own dialogue, measured at about -16 LUFS. The shipped
+# library ranges from -13 to -20, so normalising also makes it more consistent
+# than it is today.
+TARGET_LUFS = -16.0
 
 
 def index_reference(directory):
@@ -77,6 +95,37 @@ def load_voice_bank(path, voices):
     return fallback, unusable
 
 
+def reference_seconds(path):
+    try:
+        return audio_duration(path)
+    except Exception:
+        return None
+
+
+def pick_references(clips, count=REFERENCE_CLIPS):
+    """Choose the clips most likely to yield a clean clone.
+
+    Selection used to be the first N alphabetically, which is close to random —
+    an NPC whose files begin with attack barks was cloned from shouting.
+    """
+    scored = []
+    for path in clips:
+        name = os.path.basename(path).lower()
+        combat = any(marker in name for marker in COMBAT_MARKERS)
+        seconds = reference_seconds(path)
+        if seconds is None:
+            usable = False
+        else:
+            usable = MIN_REFERENCE_SECONDS <= seconds <= MAX_REFERENCE_SECONDS
+        # Prefer ordinary dialogue of a usable length, then longer clips, which
+        # carry more prosody for the model to imitate.
+        scored.append((not combat, usable, seconds or 0, path))
+
+    scored.sort(key=lambda entry: (entry[0], entry[1], entry[2]), reverse=True)
+    chosen = [path for *_, path in scored[:count]]
+    return chosen or clips[:count]
+
+
 def match_voice(voices, npc_name, fallback=None):
     """Find an NPC's reference clips, tolerating title differences."""
     if not npc_name:
@@ -95,12 +144,28 @@ def match_voice(voices, npc_name, fallback=None):
     return None
 
 
-def encode_ogg(wav_path, ogg_path, quality=4):
-    """Re-encode to Ogg Vorbis, which is what the game and addon both use."""
-    result = subprocess.run(
-        ["ffmpeg", "-loglevel", "error", "-y", "-i", wav_path,
-         "-c:a", "libvorbis", "-q:a", str(quality), ogg_path],
-        capture_output=True, text=True)
+def encode_ogg(wav_path, ogg_path, quality=4, normalize=True):
+    """Trim, level and encode to Ogg Vorbis, the format game and addon share.
+
+    Synthesis output varies in level between clips and often carries a beat of
+    silence at each end. Left alone that is audible as lines jumping in volume
+    against the game's own dialogue, so both are corrected in the same pass.
+    """
+    filters = []
+    if normalize:
+        filters.append("silenceremove=start_periods=1:start_threshold=-50dB"
+                       ":start_silence=0.05:detection=peak")
+        filters.append(f"loudnorm=I={TARGET_LUFS}:TP=-1.5:LRA=11")
+        # loudnorm resamples to 192 kHz internally; bring it back to the rate
+        # the rest of the library uses.
+        filters.append("aresample=24000")
+
+    command = ["ffmpeg", "-loglevel", "error", "-y", "-i", wav_path]
+    if filters:
+        command += ["-af", ",".join(filters)]
+    command += ["-ac", "1", "-c:a", "libvorbis", "-q:a", str(quality), ogg_path]
+
+    result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"ffmpeg failed: {result.stderr.strip()[:200]}")
     os.remove(wav_path)
@@ -134,6 +199,8 @@ def main():
     parser.add_argument("--language", default="en")
     parser.add_argument("--keep-wav", action="store_true",
                         help="skip Ogg encoding and leave WAV output")
+    parser.add_argument("--no-normalize", action="store_true",
+                        help="skip loudness matching and silence trimming")
     parser.add_argument("--voice-bank",
                         help="voicebank.json, giving NPCs without reference "
                              "audio a stand-in voice for their race and sex")
@@ -199,7 +266,7 @@ def main():
             novoice[passage.get("npcName") or "(no NPC)"] += 1
             continue
 
-        planned.append((target, passage["text"], clips[:REFERENCE_CLIPS],
+        planned.append((target, passage["text"], pick_references(clips),
                         passage.get("npcName")))
 
     print(f"\n  to generate : {len(planned):>5}", file=sys.stderr)
@@ -228,7 +295,7 @@ def main():
             engine.tts_to_file(text=text, speaker_wav=clips,
                                language=args.language, file_path=wav_target)
             if not args.keep_wav:
-                encode_ogg(wav_target, target)
+                encode_ogg(wav_target, target, normalize=not args.no_normalize)
         except Exception as exc:  # engine and codec failures are both fatal
             failures += 1                                # to this clip only
             print(f"  failed {os.path.basename(target)} ({npc}): {exc}",

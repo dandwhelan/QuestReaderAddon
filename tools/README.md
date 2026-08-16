@@ -397,6 +397,25 @@ addon already ships.
 python3 synthesize.py passages.json --reference ./reference-audio --dry-run
 ```
 
+### What happens to the audio
+
+Reference clips are chosen rather than taken in order. Selection was the first
+six alphabetically, which is close to random — an NPC whose filenames begin with
+attack barks was cloned from shouting. Clips are now ranked to prefer ordinary
+dialogue over combat and reaction lines, and to prefer a usable length
+(2.5–20 s) over grunts.
+
+Generated audio is trimmed and levelled before encoding. Synthesis output varies
+in level between clips and carries a beat of silence at each end, which is
+audible as lines jumping in volume against the game's own dialogue. Each clip is
+silence-trimmed, normalised to **-16 LUFS**, resampled to 24 kHz mono and
+encoded to Ogg Vorbis in a single ffmpeg pass. `--no-normalize` skips it.
+
+That target is measured, not chosen: the game's own dialogue sits at about
+-16 LUFS, while the shipped library ranges from -13 to -20. Normalising makes
+new audio both consistent with the game and more consistent than the existing
+library.
+
 **Always dry-run first.** It reports how many clips would be generated, how many
 already exist, and — most usefully — which NPCs have no reference audio and so
 need a fallback voice chosen. Planning needs no GPU and no model, so it is worth
