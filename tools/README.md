@@ -1,8 +1,48 @@
-# Voice source tooling
+# Audio generation tooling
 
-Tooling for the audio generation pipeline. This directory covers the first half
-of the problem — finding and extracting the in-game speech that AI voice models
-are cloned from. It does not generate anything yet.
+Tooling for regenerating the addon's quest voiceovers. It gathers the two
+inputs synthesis needs — the text to speak, and reference audio for the voice
+that speaks it — and does not generate audio itself yet.
+
+## Start here
+
+Run in this order. Each step's output is the next step's input; nothing has to
+exist beforehand.
+
+```sh
+# 1. Which quests have no audio?  ->  missing.txt
+python3 missing_quests.py -o missing.txt
+
+# 2. What do they say, and who says it?  ->  passages.json
+python3 wowhead_quests.py --ids missing.txt -o passages.json
+
+# 3. Which NPCs need a cloned voice?  ->  npcs.txt
+python3 -c "import json;print('\n'.join(sorted({p['npcName'] for p in json.load(open('passages.json'))['passages'] if p['npcName']})))" > npcs.txt
+
+# 4. Do those NPCs have usable reference audio?
+python3 voice_sources.py report npcs.txt
+
+# 5. Which audio files to extract  ->  ids.txt
+python3 voice_sources.py manifest npcs.txt --per-npc 8 -o ids.txt
+```
+
+Then extract the audio listed in `ids.txt` with wow.export (see *Extracting the
+audio* below), and you have matched text-and-voice pairs ready for synthesis.
+
+On Windows use `py.exe` in place of `python3`.
+
+Step 2 can be replaced by the harvester addon if you would rather read text from
+a live client than from Wowhead — see *Harvesting quest text*. The two produce
+the same records.
+
+### What each file is
+
+| File | Produced by | Contains |
+| --- | --- | --- |
+| `missing.txt` | step 1 | quest IDs with no audio, one per line |
+| `passages.json` | step 2 | text and speaker for each quest passage |
+| `npcs.txt` | step 3 | the NPC names to clone |
+| `ids.txt` | step 5 | FileDataIDs to extract in wow.export |
 
 ## Why this exists
 
@@ -51,17 +91,41 @@ gender.
 
 ```sh
 # Build the index. Downloads the ~150 MB community listfile once and caches it.
+# Optional — any command below builds the index if it is missing.
 python3 voice_sources.py index
 
 # What speech exists for an NPC?
 python3 voice_sources.py lookup "Alleria Windrunner"
 
-# Coverage across a list of quest givers, one name per line.
-python3 voice_sources.py report npcs.txt
+# Coverage and FileDataIDs for the NPCs voiced in a patch, in one step.
+python3 voice_sources.py report   --patch 120 1200 1205 1207 121
+python3 voice_sources.py manifest --patch 120 1200 1205 1207 121 -o ids.txt
 
-# FileDataIDs to feed the extraction step.
+# Or work from a curated list instead, one name per line.
+python3 voice_sources.py patch 120 1200 1205 1207 121 -o npcs.txt
+python3 voice_sources.py report npcs.txt
 python3 voice_sources.py manifest npcs.txt -o ids.txt
 ```
+
+On Windows use `py.exe voice_sources.py ...`.
+
+### Finding the NPCs for a patch
+
+Voice files are named `vo_<patch>_<npc>_<nn>.ogg`, so the patch a line was
+recorded for is readable straight off the filename. That narrows 3,678 voiced
+NPCs to the few hundred involved in recent content without needing quest data
+first, which is useful because the quest-to-NPC mapping is the slowest thing to
+assemble.
+
+The prefixes are not zero-padded consistently — 12.1 appears as `121` while
+12.0.7 appears as `1207` — so patches are matched as literal strings, not
+numbers. Midnight to date is `120 1200 1205 1207 121`, which covers 314 NPCs
+and 8,063 files; 76% of those NPCs clear the five-clip threshold.
+
+This list is a strong proxy for the quest givers in recent content, but it is
+not the same thing: it includes NPCs voiced for cinematics and ambient dialogue
+who give no quests, and it will miss any quest giver who is unvoiced. Treat it
+as a starting point to validate against, not the final mapping.
 
 Names are matched on whole tokens, so titles and epithets resolve in either
 direction — `Xal'atath` finds `xalatath_blade_of_the_black_empire`. Ambiguous
@@ -71,19 +135,66 @@ Python 3 standard library only; no dependencies.
 
 ## Extracting the audio
 
-`manifest` produces the list of FileDataIDs to pull. To turn those into files:
+### How many files do you actually need?
+
+Far fewer than the full set. Zero-shot cloning needs only a handful of clean
+clips per voice, so `--per-npc 8` across every Midnight NPC is about 2,000
+files — not the ~19,000 that pulling everything produces. Raising `--per-npc`
+mostly adds extraction time and disk for no gain in clone quality.
+
+### In wow.export, filter — do not paste IDs
+
+Pasting thousands of IDs one at a time is not the intended workflow. Because
+the filenames encode both the NPC and the patch, a single search does the same
+job:
+
+| Goal | Search |
+| --- | --- |
+| One NPC | `zuljarra` |
+| Everything from patch 12.1 | `vo_121_` |
+| Everything from 12.0 | `vo_120_` |
+
+Then select all the results and export once.
 
 1. Install [wow.export](https://github.com/Kruithne/wow.export). It reads from a
    local game install *or* streams from Blizzard's public CDN, so a full client
    install is not strictly required.
-2. Point it at your source (local install or CDN) and let it load the build.
-3. Open the **Sounds** tab and filter to the FileDataIDs from `ids.txt`.
-4. Export. Files arrive as `.ogg` — the format the game stores natively — so no
-   transcoding is needed before they are used as cloning references.
+2. Point it at your source and let it load the build.
+3. Open the **Sounds** tab, type the search above, select all, export.
 
-Organize the exports one directory per NPC. The synthesis step keys reference
-audio by NPC, and the listfile paths (`sound/creature/<npc>/`) already give that
-grouping for free.
+Files arrive as `.ogg` — the format the game stores natively — so no transcoding
+is needed before they are used as cloning references.
+
+### Selecting the results
+
+The audio tab has no way to import a list of IDs, so the search box is the
+selection mechanism. Filter, then select the whole result set — click the first
+row and Shift+Click the last, or Ctrl+A with the list focused — and press
+**Export Selected**. The counter above the search box confirms how many are
+selected.
+
+Verified on wow.export v0.2.19: searching `vo_121` returns 347 files, the whole
+of patch 12.1's voice-over, exportable in one action.
+
+The audio tab also has quick filters for OGG/MP3/UNK. Set it to OGG, since all
+voice-over is Ogg Vorbis.
+
+Because selection happens through the search box, prefer filters that describe
+the set you want (`vo_121_`, an NPC folder name) over generating an ID list.
+`manifest` remains useful for feeding a command-line extractor, and for knowing
+in advance how many files a given selection should produce.
+
+### Command-line extraction
+
+`--paths` emits `sound/creature/<npc>/<file>.ogg` lines instead of FileDataIDs,
+for extractors that take a file list rather than IDs. Be aware that the obvious
+candidate, [erorus/casc](https://github.com/erorus/casc), needs PHP 7.2+ plus a
+`composer install`, and its README states Windows support is untested. On
+Windows, Paste Selection above is the less painful route.
+
+Either way, keep the exports grouped one directory per NPC. The listfile layout
+(`sound/creature/<npc>/`) gives that for free, and the synthesis step keys
+reference audio by NPC.
 
 ## Picking reference clips
 
@@ -97,9 +208,93 @@ clip count:
 - Six to thirty seconds of clean speech is typically enough. The `--per-npc`
   cap defaults to 40 clips, which is comfortably more than needed.
 
+## Harvesting quest text
+
+`QuestReaderHarvester/` is a companion addon that solves the half of the
+pipeline that cannot be datamined. Copy the folder into `Interface/AddOns/`,
+enable it, and play. It records the description, progress and completion text of
+every quest you interact with, along with the NPC who speaks each passage.
+
+The speaker is recorded **per passage, not per quest**: the NPC who offers a
+quest is frequently not the one who takes it back, and voicing the turn-in with
+the giver's voice is a mistake that can only be fixed by regenerating.
+
+```
+/qrharvest        show how much has been captured
+/qrharvest wipe   clear the store and start again
+```
+
+SavedVariables are written on logout or `/reload`, so `/qrharvest` reporting
+captures does not mean they are on disk yet. The file lands at:
+
+```
+World of Warcraft/_retail_/WTF/Account/<ACCOUNT>/SavedVariables/QuestReaderHarvester.lua
+```
+
+## Fetching quest text from Wowhead instead
+
+`wowhead_quests.py` gets the same records without playing the content. Wowhead
+holds quest text because players upload it, so it can be read back per quest ID.
+
+```sh
+python3 wowhead_quests.py --ids missing.txt -o passages.json
+```
+
+Feed it the quest IDs `/qrmissing` reports, or any list one per line. It
+extracts the description, progress and completion text plus the quest giver and
+turn-in NPC, assigning the giver to the offer and the turn-in NPC to the rest.
+Pages are cached, so reruns cost nothing and only new IDs are fetched.
+
+Which route to use:
+
+| | Coverage | Freshness | Cost |
+| --- | --- | --- | --- |
+| Harvester | only what you play | authoritative | play time |
+| Wowhead | everything at once | lags a patch by days | third-party data |
+
+**Wowhead's terms of use do not permit scraping.** This is the route the
+original project relied on — the addon README's note that "the source I utilize
+for quest info can sometimes take several days" describes exactly this lag —
+but it is a deliberate choice rather than a safe default. Requests are paced at
+1.5s by default and cached; raise `--delay` rather than lowering it.
+
+The practical combination is Wowhead for bulk and the harvester for anything it
+lacks, since brand-new content is where its coverage is thinnest and where a
+live client is authoritative.
+
+## Preparing text for synthesis
+
+`harvest_export.py` reads that file and emits one record per spoken passage —
+quest, speaker, and text with Blizzard's markup expanded into speech.
+
+```sh
+python3 harvest_export.py QuestReaderHarvester.lua -o passages.json
+python3 harvest_export.py QuestReaderHarvester.lua --format csv -o passages.csv
+```
+
+The expansion is the reason this step exists. Quest text is written to be read,
+not spoken, and a model handed it raw will pronounce the markup:
+
+| Markup | Becomes |
+| --- | --- |
+| `$n`, `$p` | the `--player-name` value, default "adventurer" |
+| `$r` / `$c` | "traveler" / "hero" |
+| `$b`, `\|n` | paragraph break |
+| `$g Lad:Lass;` | one side, chosen by `--gender` |
+| `\|4offering:offerings;` | the singular form |
+| `\|cFFFF0000...\|r` | stripped |
+
+Markup the script does not recognise is **reported rather than passed through**,
+so unknown tokens surface before generation instead of appearing in the audio.
+Passages with no NPC recorded are counted too — those come from objects and
+auto-accepted quests, and cannot be voice-matched without a manual assignment.
+
+The SavedVariables file is parsed rather than executed, so a file coming back
+from someone else's game client cannot run code.
+
 ## Next
 
-The remaining stages are text acquisition, text normalization (quest text is
-full of `$n`, `$r`, `$c`, `$b` and `$g male:female;` substitution tokens that
-must be expanded before synthesis), synthesis, and packaging. See the pipeline
+What remains is synthesis and packaging: clone each NPC from its reference
+audio, generate a clip per passage, loudness-normalize, measure durations to
+regenerate `SoundLengths.lua`, and package as a sound pack. See the pipeline
 plan for the full sequence.
