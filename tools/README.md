@@ -125,21 +125,32 @@ Then select all the results and export once.
 Files arrive as `.ogg` — the format the game stores natively — so no transcoding
 is needed before they are used as cloning references.
 
-### Batch extraction without the GUI
+### Selecting an exact set with Paste Selection
 
-For the full set, a command-line extractor is less tedious. Tools such as
-[erorus/casc](https://github.com/erorus/casc) take a text file of paths:
+When the set is not a clean search — a curated list of quest givers, say —
+wow.export's **Paste Selection** takes a list from the clipboard and selects
+those entries. Generate the list, copy it, paste it in, export once:
 
 ```sh
 python3 voice_sources.py manifest --patch 120 1200 1205 1207 121 \
-    --per-npc 8 --paths -o paths.txt
-php casc.php --files paths.txt --out ./reference-audio
+    --per-npc 8 -o ids.txt
 ```
 
+Two settings worth knowing: regex filtering is **off by default** in wow.export
+and has to be enabled in settings, and the audio tab has quick filters for
+OGG/MP3 — set it to OGG, since all voice-over is Ogg Vorbis.
+
+### Command-line extraction
+
 `--paths` emits `sound/creature/<npc>/<file>.ogg` lines instead of FileDataIDs,
-which is what batch extractors expect. The resulting directory tree is already
-grouped one folder per NPC, which is how the synthesis step wants its reference
-audio.
+for extractors that take a file list rather than IDs. Be aware that the obvious
+candidate, [erorus/casc](https://github.com/erorus/casc), needs PHP 7.2+ plus a
+`composer install`, and its README states Windows support is untested. On
+Windows, Paste Selection above is the less painful route.
+
+Either way, keep the exports grouped one directory per NPC. The listfile layout
+(`sound/creature/<npc>/`) gives that for free, and the synthesis step keys
+reference audio by NPC.
 
 ## Picking reference clips
 
