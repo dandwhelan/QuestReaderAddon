@@ -24,6 +24,15 @@ python3 voice_sources.py report npcs.txt
 
 # 5. Which audio files to extract  ->  ids.txt
 python3 voice_sources.py manifest npcs.txt --per-npc 8 -o ids.txt
+
+#    ... extract ids.txt with wow.export into ./reference-audio ...
+
+# 6. Plan the generation, then run it  ->  ./generated
+python3 synthesize.py passages.json --reference ./reference-audio --dry-run
+python3 synthesize.py passages.json --reference ./reference-audio -o ./generated
+
+# 7. Rebuild the index the addon reads
+python3 build_soundlengths.py ./generated -o ../SoundLengths.lua
 ```
 
 Then extract the audio listed in `ids.txt` with wow.export (see *Extracting the
@@ -43,6 +52,8 @@ the same records.
 | `passages.json` | step 2 | text and speaker for each quest passage |
 | `npcs.txt` | step 3 | the NPC names to clone |
 | `ids.txt` | step 5 | FileDataIDs to extract in wow.export |
+| `./generated` | step 6 | the finished `<questID>_<passage>.ogg` clips |
+| `SoundLengths.lua` | step 7 | the index the addon looks up before playing |
 
 ## Why this exists
 
@@ -292,9 +303,46 @@ auto-accepted quests, and cannot be voice-matched without a manual assignment.
 The SavedVariables file is parsed rather than executed, so a file coming back
 from someone else's game client cannot run code.
 
-## Next
+## Generating the audio
 
-What remains is synthesis and packaging: clone each NPC from its reference
-audio, generate a clip per passage, loudness-normalize, measure durations to
-regenerate `SoundLengths.lua`, and package as a sound pack. See the pipeline
-plan for the full sequence.
+`synthesize.py` matches each passage's speaker to that NPC's reference clips
+and generates one file per passage. The default engine is Coqui XTTS-v2, which
+clones zero-shot from a few seconds of audio and outputs at 24 kHz, the rate the
+addon already ships.
+
+```sh
+python3 synthesize.py passages.json --reference ./reference-audio --dry-run
+```
+
+**Always dry-run first.** It reports how many clips would be generated, how many
+already exist, and — most usefully — which NPCs have no reference audio and so
+need a fallback voice chosen. Planning needs no GPU and no model, so it is worth
+running before installing anything.
+
+Generation itself needs `pip install TTS` and, to be practical, a GPU. Runs are
+resumable: existing output is skipped, so an interrupted run continues rather
+than starting over, and a failed clip can be retried by rerunning.
+
+Ogg encoding shells out to `ffmpeg`. Use `--keep-wav` to skip it.
+
+**This script has not been run against a real model.** Its planning, matching
+and resume logic are tested; the generation call itself is not, because no GPU
+or TTS install was available where it was written. Expect to adjust it on first
+use.
+
+## Rebuilding the index
+
+`SoundLengths.lua` is what the addon consults before playing anything — a clip
+missing from it is invisible even when the file is present, so this is a
+required step, not a cleanup one.
+
+```sh
+python3 build_soundlengths.py ./generated -o ../SoundLengths.lua
+```
+
+Durations are read from the audio headers, so no ffmpeg is needed here. Files
+not named `<questID>_<passage>.<ext>` are reported rather than silently indexed,
+since the addon could never find them.
+
+The addon accepts both `.ogg` and `.wav` and prefers Ogg where a clip exists in
+both, so a pack can be converted over gradually rather than all at once.

@@ -2,6 +2,10 @@ local addonName, addon = ...
 local LDB = LibStub("LibDataBroker-1.1")
 local icon = LibStub("LibDBIcon-1.0")
 
+-- Ogg first: new content is generated as Ogg Vorbis, and where both exist the
+-- smaller file is preferred.
+SOUND_EXTENSIONS = { ".ogg", ".wav" }
+
 local optionalSoundPacks = {
     "QuestReaderAddon_TWW_EN",
     "QuestReaderAddon_TWW_FR"
@@ -315,29 +319,38 @@ function PlayQuestAudio(textType, skipDelay)
             StopCurrentSound()
         end
 
-        local soundFile = questID .. "_" .. textType .. ".wav"
-        local soundPath = nil
-        
-        for packName, soundLengths in pairs(addon.soundSources) do
-            -- Check if the sound file exists in the soundLengths table
-            if soundLengths[soundFile] then
-                soundPath = "Interface\\AddOns\\" .. packName .. "\\Sounds\\" .. soundFile
+        -- Newly generated audio ships as Ogg Vorbis, which is a fraction of the
+        -- size of the original PCM library and is what the game itself uses.
+        -- Both are accepted so a pack can mix them while it is converted over.
+        local baseName = questID .. "_" .. textType
+        local soundFile, soundPath
+
+        for _, extension in ipairs(SOUND_EXTENSIONS) do
+            local candidate = baseName .. extension
+            for packName, soundLengths in pairs(addon.soundSources) do
+                if soundLengths[candidate] then
+                    soundFile = candidate
+                    soundPath = "Interface\\AddOns\\" .. packName .. "\\Sounds\\" .. candidate
+                    break
+                end
+            end
+            if soundPath then
                 break
             end
         end
-        
+
         if not soundPath then
             -- Report the gap so players can tell "not recorded yet" apart from
             -- a broken addon, and can report the ID. Deduplicated per session so
             -- autoplay does not repeat the same line on every quest interaction.
-            if not addon.reportedMissing[soundFile] then
-                addon.reportedMissing[soundFile] = true
+            if not addon.reportedMissing[baseName] then
+                addon.reportedMissing[baseName] = true
                 print("Quest Reader: no audio for quest " .. questID .. " (" .. textType .. ")")
             end
             addon.activeSound = nil
             return
         end
-        
+
         addon.activeSound = {
             questID = questID,
             textType = textType,

@@ -40,7 +40,7 @@ function QuestAudioLibraryUI:PopulateList()
             local questID = soundFile:match("(%d+)_")
             if questID then
                 questIDs[questID] = questIDs[questID] or {}
-                local audioType = soundFile:match("_([a-z]+)%.wav$")
+                local audioType = soundFile:match("_([a-z]+)%.%w+$")
                 if audioType then
                     questIDs[questID][audioType] = true  -- Mark this audio type as available for the questID
                 end
@@ -119,19 +119,20 @@ function QuestAudioLibraryUI:PlaySpecificAudio(questID, audioType)
         activeDebugSound = nil
     end
 
-    local soundFile = questID .. "_" .. audioType .. ".wav"
-    -- Search through each addon in addon.soundSources
-    for packName, soundLengths in pairs(addon.soundSources) do
-        -- Check if the sound file exists in the soundLengths table
+    -- Match PlayQuestAudio: either container may hold a given clip.
+    for _, extension in ipairs(SOUND_EXTENSIONS) do
+      local soundFile = questID .. "_" .. audioType .. extension
+      for packName, soundLengths in pairs(addon.soundSources) do
         if soundLengths[soundFile] then
             -- Construct the path to the sound file
-            local soundPath = "Interface\\AddOns\\" .. packName .. "\\Sounds\\" .. soundFile
-            -- Assign without `local`: declaring a new local here left the
-            -- outer handle nil, so previews never stopped the previous clip.
-            local _
-            _, activeDebugSound = PlaySoundFile(soundPath, "Dialog")
-            return  -- Stop after playing the first valid sound file
+          local soundPath = "Interface\\AddOns\\" .. packName .. "\\Sounds\\" .. soundFile
+          -- Assign without `local`: declaring a new local here left the
+          -- outer handle nil, so previews never stopped the previous clip.
+          local _
+          _, activeDebugSound = PlaySoundFile(soundPath, "Dialog")
+          return  -- Stop after playing the first valid sound file
         end
+      end
     end
 
     print("Audio not found for Quest ID: " .. questID .. " and type: " .. audioType)
