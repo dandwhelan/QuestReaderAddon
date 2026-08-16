@@ -35,9 +35,13 @@ REFERENCE_CLIPS = 6
 XTTS_MODEL = "tts_models/multilingual/multi-dataset/xtts_v2"
 
 # Zero-shot cloning wants ordinary connected speech. Too short carries no
-# prosody; very long clips slow conditioning without improving it.
+# prosody, but piling on more is actively harmful: the model averages prosody
+# across everything it is given, so a large reference set converges on a flat,
+# characterless read. Around 8-15 seconds total is the documented sweet spot
+# for XTTS-v2 and F5-TTS alike, which is a budget rather than a clip count.
 MIN_REFERENCE_SECONDS = 2.5
-MAX_REFERENCE_SECONDS = 20.0
+MAX_REFERENCE_SECONDS = 15.0
+REFERENCE_BUDGET_SECONDS = 12.0
 
 # Combat and reaction lines are shouted, clipped and often processed. Cloning
 # from them produces a voice that sounds permanently angry, so they are used
@@ -102,28 +106,35 @@ def reference_seconds(path):
         return None
 
 
-def pick_references(clips, count=REFERENCE_CLIPS):
-    """Choose the clips most likely to yield a clean clone.
+def pick_references(clips, budget=REFERENCE_BUDGET_SECONDS,
+                    limit=REFERENCE_CLIPS):
+    """Choose the clips most likely to yield a clean, characterful clone.
 
-    Selection used to be the first N alphabetically, which is close to random —
-    an NPC whose files begin with attack barks was cloned from shouting.
+    Two things this gets right that the obvious approach does not. Selection is
+    not alphabetical — that quietly cloned NPCs from their combat barks, since
+    "attack" sorts before "quest". And it stops at a duration budget rather than
+    taking a fixed number of clips: handing the model everything available makes
+    it average across the lot and read flatter, so more reference is worse.
     """
     scored = []
     for path in clips:
         name = os.path.basename(path).lower()
         combat = any(marker in name for marker in COMBAT_MARKERS)
         seconds = reference_seconds(path)
-        if seconds is None:
-            usable = False
-        else:
-            usable = MIN_REFERENCE_SECONDS <= seconds <= MAX_REFERENCE_SECONDS
-        # Prefer ordinary dialogue of a usable length, then longer clips, which
-        # carry more prosody for the model to imitate.
-        scored.append((not combat, usable, seconds or 0, path))
+        usable = (seconds is not None
+                  and MIN_REFERENCE_SECONDS <= seconds <= MAX_REFERENCE_SECONDS)
+        scored.append((not combat, usable, seconds or 0.0, path))
 
+    # Ordinary dialogue first, then clips of a usable length, then longer ones.
     scored.sort(key=lambda entry: (entry[0], entry[1], entry[2]), reverse=True)
-    chosen = [path for *_, path in scored[:count]]
-    return chosen or clips[:count]
+
+    chosen, total = [], 0.0
+    for _, _, seconds, path in scored:
+        if len(chosen) >= limit or total >= budget:
+            break
+        chosen.append(path)
+        total += seconds
+    return chosen or clips[:1]
 
 
 def match_voice(voices, npc_name, fallback=None):
