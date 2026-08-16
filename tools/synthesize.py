@@ -22,6 +22,7 @@ Usage:
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -87,6 +88,34 @@ TARGET_LUFS = -16.0
 # to steer by: on a clip whose pitch is bimodal the estimator's median jumps
 # between modes, and the correction then points the wrong way. Matching a
 # whole voice needs a target measured across a speaker, not one utterance.
+
+
+def load_lexicon(path):
+    """Compile the pronunciation lexicon into one substitution pass.
+
+    Warcraft proper nouns are not English, and the model reads them as if
+    they were — Zul'Aman came out wrong the first time anyone listened. The
+    lexicon respells known offenders phonetically before the text reaches the
+    engine. One compiled alternation keeps a long lexicon from meaning many
+    passes over every passage.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            entries = {k: v for k, v in json.load(handle).items()
+                       if not k.startswith("_")}
+    except FileNotFoundError:
+        return None
+    if not entries:
+        return None
+    folded = {k.lower(): v for k, v in entries.items()}
+    # The trailing guard blocks only word characters, not apostrophes, so a
+    # possessive still matches: "Zul'Aman's" respells as "Zool-Ah-Mahn's".
+    pattern = re.compile(
+        r"(?<![\w'])(" + "|".join(re.escape(k) for k in
+                                  sorted(entries, key=len, reverse=True))
+        + r")(?!\w)", re.IGNORECASE)
+    return lambda text: pattern.sub(
+        lambda m: folded[m.group(1).lower()], text)
 
 
 def index_reference(directory):
@@ -350,6 +379,13 @@ def main():
                         help="skip Ogg encoding and leave WAV output")
     parser.add_argument("--no-normalize", action="store_true",
                         help="skip loudness matching and silence trimming")
+    parser.add_argument("--lexicon",
+                        default=os.path.join(
+                            os.path.dirname(os.path.abspath(__file__)),
+                            "pronunciations.json"),
+                        help="phonetic respellings for proper nouns the "
+                             "model mispronounces (default "
+                             "pronunciations.json beside this script)")
     parser.add_argument("--voice-bank",
                         help="voicebank.json, giving NPCs without reference "
                              "audio a stand-in voice for their race and sex")
@@ -392,6 +428,7 @@ def main():
 
     os.makedirs(args.output, exist_ok=True)
 
+    respell = load_lexicon(args.lexicon)
     planned, done, novoice = [], 0, {}
     for passage in passages:
         quest_id = str(passage["questID"])
@@ -415,7 +452,8 @@ def main():
             novoice[passage.get("npcName") or "(no NPC)"] += 1
             continue
 
-        planned.append((target, passage["text"],
+        text = respell(passage["text"]) if respell else passage["text"]
+        planned.append((target, text,
                         pick_references(clips, budget=args.reference_seconds),
                         passage.get("npcName")))
 

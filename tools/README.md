@@ -398,6 +398,20 @@ addon already ships.
 python3 synthesize.py passages.json --reference ./reference-audio --dry-run
 ```
 
+### Pronunciation
+
+Warcraft proper nouns are not English, and the model reads them as if they
+were — the first Zul'Aman anyone listened to came out wrong.
+`pronunciations.json` beside the script maps known offenders to phonetic
+respellings ("Zul'Aman" → "Zool-Ah-Mahn"), applied to the text before it
+reaches the engine. Matching is case-insensitive on whole words, and
+possessives are handled ("Zul'Aman's" respells too).
+
+Grow it by listening, not by guessing: add an entry when a generated clip
+gets a name wrong, and check the respelling against the game's own
+voice-over for that word before trusting it. `--lexicon` points elsewhere;
+an empty or missing file disables the pass.
+
 ### What happens to the audio
 
 Reference clips are chosen rather than taken in order. Selection was the first
