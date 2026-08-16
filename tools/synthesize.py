@@ -49,7 +49,35 @@ def index_reference(directory):
     return voices
 
 
-def match_voice(voices, npc_name):
+def load_voice_bank(path, voices):
+    """Map each NPC to its group's donor clips.
+
+    Produces {folded npc name: clips} covering every NPC in the bank, not only
+    those the bank flagged. The bank records which NPCs have no audio *in the
+    game*; synthesis needs a stand-in whenever audio was not *extracted here*,
+    which is a larger set. The donor is only consulted after an NPC's own clips
+    fail to resolve, so offering one for everybody costs nothing.
+    """
+    with open(path, encoding="utf-8") as handle:
+        bank = json.load(handle)
+
+    fallback, unusable = {}, set()
+    for group_name, group in bank.items():
+        donor = group.get("donor")
+        clips = voices.get(donor["folder"]) if donor else None
+        if not clips:
+            # The bank names a donor whose audio was never extracted; recording
+            # it as unusable is more honest than silently leaving NPCs unvoiced.
+            if donor:
+                unusable.add(f"{group_name} (donor {donor['folder']})")
+            continue
+        for member in group.get("members", []):
+            if member.get("npcName"):
+                fallback[fold_name(member["npcName"])] = clips
+    return fallback, unusable
+
+
+def match_voice(voices, npc_name, fallback=None):
     """Find an NPC's reference clips, tolerating title differences."""
     if not npc_name:
         return None
@@ -61,6 +89,9 @@ def match_voice(voices, npc_name):
     candidates = [k for k in voices if key in k.split("_") or key in k]
     if len(candidates) == 1:
         return voices[candidates[0]]
+    # No audio of its own: fall back to the donor for this NPC's race and sex.
+    if fallback:
+        return fallback.get(key)
     return None
 
 
@@ -103,6 +134,9 @@ def main():
     parser.add_argument("--language", default="en")
     parser.add_argument("--keep-wav", action="store_true",
                         help="skip Ogg encoding and leave WAV output")
+    parser.add_argument("--voice-bank",
+                        help="voicebank.json, giving NPCs without reference "
+                             "audio a stand-in voice for their race and sex")
     args = parser.parse_args()
 
     try:
@@ -123,6 +157,18 @@ def main():
         sys.exit(f"No audio found under {args.reference}.")
     print(f"{len(voices):,} voice(s) available in {args.reference}.",
           file=sys.stderr)
+
+    fallback, unusable = {}, set()
+    if args.voice_bank:
+        try:
+            fallback, unusable = load_voice_bank(args.voice_bank, voices)
+        except FileNotFoundError:
+            sys.exit(f"No such file: {args.voice_bank}\n"
+                     f"Build one with voice_bank.py.")
+        print(f"Voice bank covers {len(fallback):,} NPC(s) with a stand-in.",
+              file=sys.stderr)
+        for entry in sorted(unusable)[:5]:
+            print(f"  donor audio not extracted for {entry}", file=sys.stderr)
 
     wanted = None
     if args.only:
@@ -145,7 +191,7 @@ def main():
             done += 1
             continue
 
-        clips = match_voice(voices, passage.get("npcName"))
+        clips = match_voice(voices, passage.get("npcName"), fallback)
         if not clips:
             # Without reference audio there is nothing to clone from. These
             # need a fallback voice decided per NPC, not a silent skip.
