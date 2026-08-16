@@ -109,6 +109,9 @@ function QuestAudioLibraryUI:PopulateList()
     self.content:SetHeight(math.max(330, yOffset))
 end
 
+-- Handle of the preview currently playing, so the next preview can stop it.
+local activeDebugSound
+
 -- Function to play a specific audio file for a quest ID
 function QuestAudioLibraryUI:PlaySpecificAudio(questID, audioType)
     if activeDebugSound then
@@ -123,7 +126,10 @@ function QuestAudioLibraryUI:PlaySpecificAudio(questID, audioType)
         if soundLengths[soundFile] then
             -- Construct the path to the sound file
             local soundPath = "Interface\\AddOns\\" .. packName .. "\\Sounds\\" .. soundFile
-            local isPlaying, activeDebugSound = PlaySoundFile(soundPath, "Dialog")
+            -- Assign without `local`: declaring a new local here left the
+            -- outer handle nil, so previews never stopped the previous clip.
+            local _
+            _, activeDebugSound = PlaySoundFile(soundPath, "Dialog")
             return  -- Stop after playing the first valid sound file
         end
     end
