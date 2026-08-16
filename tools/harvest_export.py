@@ -222,9 +222,11 @@ def main():
         sys.exit(f"Could not parse {args.savedvariables}: {exc}")
 
     quests = data.get("quests") or {}
-    if not quests:
-        sys.exit("No quests recorded. Play through some quest dialogue with "
-                 "the harvester enabled, then /reload to flush SavedVariables.")
+    gossip = data.get("gossip") or {}
+    if not quests and not gossip:
+        sys.exit("Nothing recorded. Play through some quest dialogue or talk "
+                 "to NPCs with the harvester enabled, then /reload to flush "
+                 "SavedVariables.")
 
     records, unknown_markup, no_npc = [], set(), 0
     for quest_id, entry in sorted(quests.items(), key=lambda kv: str(kv[0])):
@@ -249,6 +251,40 @@ def main():
                 "text": spoken,
             })
 
+    # Gossip has no quest to key on — an NPC that gives no quest still has a
+    # greeting. "questID" holds "npc<id>" instead of a number here, which
+    # keeps every downstream tool (synthesize.py, build_soundlengths.py)
+    # working unmodified: they only ever treat the field as an opaque prefix
+    # for the sound filename, never as an actual quest lookup.
+    for npc_id, entry in sorted(gossip.items(), key=lambda kv: str(kv[0])):
+        if not isinstance(entry, dict):
+            continue
+        raw_texts = entry.get("texts")
+        if not isinstance(raw_texts, dict):
+            continue
+        # Lua's array-style tables parse as a dict keyed "1", "2", ... rather
+        # than a Python list, so order is recovered by sorting the keys
+        # numerically -- capture order, which is what the addon's own
+        # gossip1/gossip2 filenames are numbered against.
+        texts = [raw_texts[k] for k in sorted(raw_texts, key=lambda k: int(k))]
+        for index, text in enumerate(texts, 1):
+            if not text:
+                continue
+            spoken, leftovers = normalize(
+                text, args.player_name, args.gender)
+            unknown_markup.update(leftovers)
+            key = f"npc{npc_id}"
+            passage = f"gossip{index}"
+            records.append({
+                "questID": key,
+                "passage": passage,
+                "title": entry.get("npcName", ""),
+                "npcID": npc_id,
+                "npcName": entry.get("npcName") or "",
+                "soundFile": f"{key}_{passage}.ogg",
+                "text": spoken,
+            })
+
     out = open(args.output, "w", encoding="utf-8", newline="") \
         if args.output else sys.stdout
     try:
@@ -267,7 +303,7 @@ def main():
 
     where = args.output or "stdout"
     print(f"Wrote {len(records):,} passage(s) from {len(quests):,} quest(s) "
-          f"to {where}.", file=sys.stderr)
+          f"and {len(gossip):,} gossip NPC(s) to {where}.", file=sys.stderr)
     if no_npc:
         print(f"  {no_npc} passage(s) have no NPC and cannot be voice-matched.",
               file=sys.stderr)

@@ -21,8 +21,12 @@ import re
 import struct
 import sys
 
-AUDIO_NAME = re.compile(r"^(\d+)_(description|progress|completion)\.(ogg|wav)$",
-                        re.IGNORECASE)
+# Quest audio: "<questID>_<description|progress|completion>.<ext>". Gossip
+# has no quest to key on, so it uses "npc<npcID>_gossip<n>.<ext>" instead —
+# a distinct prefix keeps the two schemes from ever colliding on the same key.
+AUDIO_NAME = re.compile(
+    r"^(\d+|npc\d+)_(description|progress|completion|gossip\d+)\.(ogg|wav)$",
+    re.IGNORECASE)
 
 
 class AudioError(Exception):

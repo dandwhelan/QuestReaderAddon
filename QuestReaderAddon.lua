@@ -301,8 +301,8 @@ function PlayQuestAudio(textType, skipDelay)
             textType = "progress"
         elseif QuestFrameRewardPanel:IsVisible() then
             textType = "completion"
-        elseif GossipFrame:IsVisible() then
-            textType = "gossip"
+        -- Gossip has its own playback path, PlayGossipAudio: it has no
+        -- questID to key on, so it cannot share this function's lookup.
         else
             if (lastTextType == "") then
                 return
@@ -369,6 +369,74 @@ function PlayQuestAudio(textType, skipDelay)
     end
 end
 
+-- "Creature-0-<server>-<instance>-<zone>-<creatureID>-<spawn>"
+-- Mirrors the harvester's own copy: the two never load together, so sharing
+-- code between them is not an option without a third file just for this.
+local function CreatureIDFromGUID(guid)
+    if not guid then
+        return nil
+    end
+    local unitType, _, _, _, _, creatureID = strsplit("-", guid)
+    if unitType == "Creature" or unitType == "Vehicle" then
+        return tonumber(creatureID)
+    end
+    return nil
+end
+
+function PlayGossipAudio()
+    local npcID = CreatureIDFromGUID(UnitGUID("npc"))
+    if not npcID then
+        return
+    end
+
+    if IsPlaying() then
+        StopCurrentSound()
+    end
+
+    -- An NPC can have several greeting variants, captured as gossip1,
+    -- gossip2, and so on, but nothing here can tell which one the server
+    -- just chose to show -- SoundLengths carries only a duration per file,
+    -- not the text it was generated from. The first captured variant plays
+    -- regardless. NPCs with a single greeting, the common case, are
+    -- unaffected; NPCs with several will sometimes say the wrong line until
+    -- variant matching is built.
+    local baseName = "npc" .. npcID .. "_gossip1"
+    local soundFile, soundPath
+
+    for _, extension in ipairs(SOUND_EXTENSIONS) do
+        local candidate = baseName .. extension
+        for packName, soundLengths in pairs(addon.soundSources) do
+            if soundLengths[candidate] then
+                soundFile = candidate
+                soundPath = "Interface\\AddOns\\" .. packName .. "\\Sounds\\" .. candidate
+                break
+            end
+        end
+        if soundPath then
+            break
+        end
+    end
+
+    if not soundPath then
+        -- Same dedup as the quest path: report once per session, not once
+        -- per NPC interaction.
+        if not addon.reportedMissing[baseName] then
+            addon.reportedMissing[baseName] = true
+            print("Quest Reader: no gossip audio for NPC " .. npcID)
+        end
+        addon.activeSound = nil
+        return
+    end
+
+    addon.activeSound = {
+        questID = "npc" .. npcID,
+        textType = "gossip",
+        soundFile = soundFile,
+        soundPath = soundPath,
+    }
+    DoPlaySound()
+end
+
 local function OnPlayerLogout()
     local currentSound = GetCurrentSound()
     if currentSound and currentSound.nextSoundTimer then
@@ -387,8 +455,24 @@ questEventFrame:RegisterEvent("QUEST_DETAIL")
 questEventFrame:RegisterEvent("QUEST_PROGRESS")
 questEventFrame:RegisterEvent("QUEST_COMPLETE")
 questEventFrame:RegisterEvent("QUEST_FINISHED")
+questEventFrame:RegisterEvent("GOSSIP_SHOW")
+questEventFrame:RegisterEvent("GOSSIP_CLOSED")
 
 questEventFrame:SetScript("OnEvent", function(self, event, ...)
+    -- Gossip has no questID and its own lookup, so it is handled before
+    -- anything below assumes one exists.
+    if event == "GOSSIP_SHOW" then
+        if QuestReaderAddonDB.autoPlayEnabled then
+            PlayGossipAudio()
+        end
+        return
+    elseif event == "GOSSIP_CLOSED" then
+        if QuestReaderAddonDB.stopDialogueOnClose then
+            StopCurrentSound()
+        end
+        return
+    end
+
     -- Map event to appropriate textType
     local textType = ""
     if event == "QUEST_DETAIL" then

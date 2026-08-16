@@ -12,8 +12,12 @@ __pycache__/
 missing.txt
 slice.txt
 npcs.txt
+npcs_partial.txt
+cached_ids.txt
 ids.txt
 passages.json
+passages_full.json
+passages_partial.json
 passages.csv
 voicebank.json
 reference-audio/

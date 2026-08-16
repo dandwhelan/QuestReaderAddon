@@ -17,6 +17,7 @@ QuestReaderHarvesterDB = QuestReaderHarvesterDB or {}
 local function InitializeDB()
     QuestReaderHarvesterDB = QuestReaderHarvesterDB or {}
     QuestReaderHarvesterDB.quests = QuestReaderHarvesterDB.quests or {}
+    QuestReaderHarvesterDB.gossip = QuestReaderHarvesterDB.gossip or {}
     -- Text differs per language, so a capture is only meaningful alongside the
     -- locale it came from.
     QuestReaderHarvesterDB.locale = GetLocale()
@@ -66,11 +67,43 @@ local function RecordPassage(questID, passage, text)
     }
 end
 
+-- Gossip greeting text is server-delivered like quest text, and unlike quest
+-- text is keyed by nothing at all — there is no questID for an NPC that gives
+-- no quest, only the creature ID the greeting came from. A gossip-only NPC
+-- has no questID, so entries are keyed on npcID directly rather than folded
+-- into the quest table.
+--
+-- Some NPCs cycle between a handful of greeting variants, so a capture that
+-- overwrote the last one would lose the rest on every revisit. Distinct
+-- texts are kept as a list instead, deduplicated by exact match so replaying
+-- the same greeting does not grow it unbounded.
+local function RecordGossip(npcID, npcName, text)
+    if not npcID or not text or text == "" then
+        return
+    end
+
+    local gossip = QuestReaderHarvesterDB.gossip
+    local entry = gossip[npcID]
+    if not entry then
+        entry = { npcName = npcName, texts = {} }
+        gossip[npcID] = entry
+    end
+    entry.npcName = npcName or entry.npcName
+
+    for _, existing in ipairs(entry.texts) do
+        if existing == text then
+            return
+        end
+    end
+    table.insert(entry.texts, text)
+end
+
 local harvester = CreateFrame("Frame")
 harvester:RegisterEvent("ADDON_LOADED")
 harvester:RegisterEvent("QUEST_DETAIL")
 harvester:RegisterEvent("QUEST_PROGRESS")
 harvester:RegisterEvent("QUEST_COMPLETE")
+harvester:RegisterEvent("GOSSIP_SHOW")
 
 harvester:SetScript("OnEvent", function(self, event, loadedAddon)
     if event == "ADDON_LOADED" then
@@ -78,6 +111,13 @@ harvester:SetScript("OnEvent", function(self, event, loadedAddon)
             InitializeDB()
             self:UnregisterEvent("ADDON_LOADED")
         end
+        return
+    end
+
+    if event == "GOSSIP_SHOW" then
+        local speaker = CurrentSpeaker()
+        local text = C_GossipInfo.GetText()
+        RecordGossip(speaker.id, speaker.name, text)
         return
     end
 
@@ -108,10 +148,20 @@ local function CountCaptures()
     return quests, passages, unvoiced
 end
 
+local function CountGossip()
+    local npcs, texts = 0, 0
+    for _, entry in pairs(QuestReaderHarvesterDB.gossip or {}) do
+        npcs = npcs + 1
+        texts = texts + #entry.texts
+    end
+    return npcs, texts
+end
+
 SLASH_QUESTREADERHARVEST1 = "/qrharvest"
 SlashCmdList["QUESTREADERHARVEST"] = function(msg)
     if msg == "wipe" then
         QuestReaderHarvesterDB.quests = {}
+        QuestReaderHarvesterDB.gossip = {}
         print("Quest Reader Harvester: cleared.")
         return
     end
@@ -124,5 +174,9 @@ SlashCmdList["QUESTREADERHARVEST"] = function(msg)
         print("  " .. unvoiced .. " passage(s) have no NPC recorded "
               .. "(offered by an object or auto-accepted).")
     end
+
+    local gossipNPCs, gossipTexts = CountGossip()
+    print("  " .. gossipNPCs .. " NPC(s), " .. gossipTexts
+          .. " gossip line(s) captured.")
     print("  Data is written to SavedVariables on logout or /reload.")
 end
