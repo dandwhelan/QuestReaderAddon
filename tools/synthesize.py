@@ -389,6 +389,13 @@ def main():
     parser.add_argument("--voice-bank",
                         help="voicebank.json, giving NPCs without reference "
                              "audio a stand-in voice for their race and sex")
+    parser.add_argument("--default-voice",
+                        help="reference folder name to speak for anyone "
+                             "nothing else covers: NPCs absent from the "
+                             "client tables, and passages with no NPC at all "
+                             "(objects, auto-accepted quests). A last resort "
+                             "by construction — own clips, then the voice "
+                             "bank, are always preferred")
     args = parser.parse_args()
 
     try:
@@ -428,6 +435,13 @@ def main():
 
     os.makedirs(args.output, exist_ok=True)
 
+    default_clips = None
+    if args.default_voice:
+        default_clips = voices.get(fold_name(args.default_voice))
+        if not default_clips:
+            sys.exit(f"--default-voice {args.default_voice!r} matches no "
+                     f"folder under {args.reference}.")
+
     respell = load_lexicon(args.lexicon)
     planned, done, novoice = [], 0, {}
     for passage in passages:
@@ -445,6 +459,8 @@ def main():
             continue
 
         clips = match_voice(voices, passage.get("npcName"), fallback)
+        if not clips and default_clips:
+            clips = default_clips
         if not clips:
             # Without reference audio there is nothing to clone from. These
             # need a fallback voice decided per NPC, not a silent skip.
