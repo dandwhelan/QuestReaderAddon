@@ -23,6 +23,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import sys
 import urllib.request
 from collections import defaultdict
@@ -34,6 +35,7 @@ LISTFILE_URL = (
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".cache")
 LISTFILE_PATH = os.path.join(CACHE_DIR, "community-listfile.csv")
 INDEX_PATH = os.path.join(CACHE_DIR, "vo-index.json")
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 
 # sound/creature/<npc>/vo_....ogg  — the "vo_" prefix is what separates spoken
 # dialogue from footsteps, aggro grunts and other incidental creature audio.
@@ -60,9 +62,21 @@ def normalize(name):
 
 
 def download_listfile():
+    """Fetch the listfile, replacing the cache only once complete.
+
+    At ~150 MB an interrupted download is a real possibility, and the cache is
+    reused on the strength of the file merely existing — so a truncated one
+    would silently shrink the index rather than fail.
+    """
     os.makedirs(CACHE_DIR, exist_ok=True)
     print(f"Downloading listfile from {LISTFILE_URL} ...", file=sys.stderr)
-    urllib.request.urlretrieve(LISTFILE_URL, LISTFILE_PATH)
+    request = urllib.request.Request(LISTFILE_URL,
+                                     headers={"User-Agent": USER_AGENT})
+    partial = LISTFILE_PATH + ".part"
+    with urllib.request.urlopen(request, timeout=120) as response, \
+            open(partial, "wb") as handle:
+        shutil.copyfileobj(response, handle)
+    os.replace(partial, LISTFILE_PATH)
     size_mb = os.path.getsize(LISTFILE_PATH) / (1024 * 1024)
     print(f"  cached {size_mb:.0f} MB at {LISTFILE_PATH}", file=sys.stderr)
 

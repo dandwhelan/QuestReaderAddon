@@ -23,11 +23,13 @@ import argparse
 import csv
 import os
 import re
+import shutil
 import sys
 import urllib.request
 
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".cache")
 TABLES = ("Creature", "CreatureDisplayInfo", "CreatureDisplayInfoExtra")
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 
 SEX = {"0": "male", "1": "female", "2": "neutral", "3": "both"}
 CREATURE_TYPE = {
@@ -52,12 +54,27 @@ def fold(name):
     return re.sub(r"[^a-z0-9]+", "", name.lower())
 
 
+def download(url, path):
+    """Fetch to a file, replacing it only once complete.
+
+    wago.tools serves 403 to urllib's default User-Agent, so one has to be
+    set. Writing through a temporary also keeps an interrupted download from
+    leaving a truncated cache that later runs would reuse without noticing.
+    """
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    partial = path + ".part"
+    with urllib.request.urlopen(request, timeout=120) as response, \
+            open(partial, "wb") as handle:
+        shutil.copyfileobj(response, handle)
+    os.replace(partial, path)
+
+
 def fetch_table(name, refresh=False):
     os.makedirs(CACHE_DIR, exist_ok=True)
     path = os.path.join(CACHE_DIR, f"{name}.csv")
     if refresh or not os.path.exists(path):
         print(f"Downloading {name} ...", file=sys.stderr)
-        urllib.request.urlretrieve(f"https://wago.tools/db2/{name}/csv", path)
+        download(f"https://wago.tools/db2/{name}/csv", path)
     return path
 
 

@@ -25,17 +25,34 @@ Usage:
 import argparse
 import os
 import re
+import shutil
 import sys
 import urllib.request
 
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".cache")
 QUESTV2_URL = "https://wago.tools/db2/QuestV2/csv"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
 QUESTV2_PATH = os.path.join(CACHE_DIR, "QuestV2.csv")
 DEFAULT_SOUNDLENGTHS = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), os.pardir, "SoundLengths.lua")
 
 # ["<questID>_<passage>.wav"] = <seconds>,
 COVERED = re.compile(r'\["(\d+)_[a-z]+\.\w+"\]')
+
+
+def download(url, path):
+    """Fetch to a file, replacing it only once complete.
+
+    wago.tools serves 403 to urllib's default User-Agent, so one has to be
+    set. Writing through a temporary also keeps an interrupted download from
+    leaving a truncated cache that later runs would reuse without noticing.
+    """
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    partial = path + ".part"
+    with urllib.request.urlopen(request, timeout=120) as response, \
+            open(partial, "wb") as handle:
+        shutil.copyfileobj(response, handle)
+    os.replace(partial, path)
 
 
 def load_covered(path):
@@ -54,7 +71,7 @@ def load_all_quests(refresh=False):
     os.makedirs(CACHE_DIR, exist_ok=True)
     if refresh or not os.path.exists(QUESTV2_PATH):
         print(f"Downloading QuestV2 from {QUESTV2_URL} ...", file=sys.stderr)
-        urllib.request.urlretrieve(QUESTV2_URL, QUESTV2_PATH)
+        download(QUESTV2_URL, QUESTV2_PATH)
 
     quest_ids = set()
     with open(QUESTV2_PATH, encoding="utf-8", errors="replace") as handle:
