@@ -53,8 +53,19 @@ def clean(fragment):
     return html.unescape(fragment).strip()
 
 
+class Blocked(Exception):
+    """Wowhead has stopped serving us; carrying on would make it worse."""
+
+
 def fetch(quest_id, delay, refresh=False):
-    """Return the Wowhead page for a quest, caching so reruns are free."""
+    """Return the Wowhead page for a quest, caching so reruns are free.
+
+    A 403 or 429 is rate limiting, not a missing page. It gets three retries
+    with a delay that doubles from a minute, and then raises Blocked so the
+    caller can stop cleanly — a 264-page run died mid-flight and lost every
+    record it had extracted, because a block partway through killed the whole
+    process before anything was written.
+    """
     os.makedirs(CACHE_DIR, exist_ok=True)
     cached = os.path.join(CACHE_DIR, f"{quest_id}.html")
     if os.path.exists(cached) and not refresh:
@@ -64,17 +75,29 @@ def fetch(quest_id, delay, refresh=False):
     request = urllib.request.Request(
         f"https://www.wowhead.com/quest={quest_id}",
         headers={"User-Agent": USER_AGENT})
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            body = response.read().decode("utf-8", errors="replace")
-    except urllib.error.HTTPError as exc:
-        if exc.code == 404:
-            return None
-        raise
-    finally:
-        # Pace every request, including failures, so a run of missing IDs does
-        # not turn into a burst.
-        time.sleep(delay)
+    backoff = 60
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                body = response.read().decode("utf-8", errors="replace")
+            break
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                time.sleep(delay)
+                return None
+            if exc.code in (403, 429) and attempt < 3:
+                print(f"  rate limited ({exc.code}); waiting {backoff}s ...",
+                      file=sys.stderr)
+                time.sleep(backoff)
+                backoff *= 2
+                continue
+            if exc.code in (403, 429):
+                raise Blocked(f"still {exc.code} after {attempt} retries")
+            raise
+        finally:
+            # Pace every request, including failures, so a run of missing IDs
+            # does not turn into a burst.
+            time.sleep(delay)
 
     with open(cached, "w", encoding="utf-8") as handle:
         handle.write(body)
@@ -153,7 +176,16 @@ def main():
 
     records, missing, no_npc, unknown = [], [], 0, set()
     for position, quest_id in enumerate(quest_ids, 1):
-        page = fetch(quest_id, args.delay, args.refresh)
+        try:
+            page = fetch(quest_id, args.delay, args.refresh)
+        except Blocked as exc:
+            # Write what was gathered rather than losing it; the cache means
+            # a later run pays nothing to redo this ground.
+            print(f"\nBlocked at quest {quest_id} ({position}/"
+                  f"{len(quest_ids)}): {exc}\nWriting what was fetched. "
+                  f"Rerun later — cached pages are skipped, so the run "
+                  f"resumes where this one stopped.", file=sys.stderr)
+            break
         if page is None:
             missing.append(quest_id)
             continue
