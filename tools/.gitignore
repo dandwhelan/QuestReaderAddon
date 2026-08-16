@@ -20,5 +20,7 @@ passages_full.json
 passages_partial.json
 passages.csv
 voicebank.json
+voicebank_full.json
+npcs_full.txt
 reference-audio/
 generated/
