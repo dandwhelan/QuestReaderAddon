@@ -95,19 +95,51 @@ Python 3 standard library only; no dependencies.
 
 ## Extracting the audio
 
-`manifest` produces the list of FileDataIDs to pull. To turn those into files:
+### How many files do you actually need?
+
+Far fewer than the full set. Zero-shot cloning needs only a handful of clean
+clips per voice, so `--per-npc 8` across every Midnight NPC is about 2,000
+files — not the ~19,000 that pulling everything produces. Raising `--per-npc`
+mostly adds extraction time and disk for no gain in clone quality.
+
+### In wow.export, filter — do not paste IDs
+
+Pasting thousands of IDs one at a time is not the intended workflow. Because
+the filenames encode both the NPC and the patch, a single search does the same
+job:
+
+| Goal | Search |
+| --- | --- |
+| One NPC | `zuljarra` |
+| Everything from patch 12.1 | `vo_121_` |
+| Everything from 12.0 | `vo_120_` |
+
+Then select all the results and export once.
 
 1. Install [wow.export](https://github.com/Kruithne/wow.export). It reads from a
    local game install *or* streams from Blizzard's public CDN, so a full client
    install is not strictly required.
-2. Point it at your source (local install or CDN) and let it load the build.
-3. Open the **Sounds** tab and filter to the FileDataIDs from `ids.txt`.
-4. Export. Files arrive as `.ogg` — the format the game stores natively — so no
-   transcoding is needed before they are used as cloning references.
+2. Point it at your source and let it load the build.
+3. Open the **Sounds** tab, type the search above, select all, export.
 
-Organize the exports one directory per NPC. The synthesis step keys reference
-audio by NPC, and the listfile paths (`sound/creature/<npc>/`) already give that
-grouping for free.
+Files arrive as `.ogg` — the format the game stores natively — so no transcoding
+is needed before they are used as cloning references.
+
+### Batch extraction without the GUI
+
+For the full set, a command-line extractor is less tedious. Tools such as
+[erorus/casc](https://github.com/erorus/casc) take a text file of paths:
+
+```sh
+python3 voice_sources.py manifest --patch 120 1200 1205 1207 121 \
+    --per-npc 8 --paths -o paths.txt
+php casc.php --files paths.txt --out ./reference-audio
+```
+
+`--paths` emits `sound/creature/<npc>/<file>.ogg` lines instead of FileDataIDs,
+which is what batch extractors expect. The resulting directory tree is already
+grouped one folder per NPC, which is how the synthesis step wants its reference
+audio.
 
 ## Picking reference clips
 

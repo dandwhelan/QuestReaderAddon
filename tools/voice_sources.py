@@ -310,8 +310,10 @@ def cmd_manifest(args):
         if folder is None:
             skipped.append(name)
             continue
-        for file_data_id, _ in clips[: args.per_npc]:
-            lines.append(str(file_data_id))
+        for file_data_id, filename in clips[: args.per_npc]:
+            # Batch CASC extractors take file paths; wow.export's UI takes IDs.
+            lines.append(f"sound/creature/{folder}/{filename}"
+                         if args.paths else str(file_data_id))
 
     out = open(args.output, "w", encoding="utf-8") if args.output else sys.stdout
     try:
@@ -321,7 +323,8 @@ def cmd_manifest(args):
             out.close()
 
     where = args.output or "stdout"
-    print(f"Wrote {len(lines):,} FileDataIDs to {where}.", file=sys.stderr)
+    kind = "paths" if args.paths else "FileDataIDs"
+    print(f"Wrote {len(lines):,} {kind} to {where}.", file=sys.stderr)
     if skipped:
         print(f"Skipped {len(skipped)} NPC(s) with no voice-over: "
               f"{', '.join(skipped[:5])}"
@@ -364,6 +367,9 @@ def main():
     p_manifest.add_argument("--per-npc", type=int, default=40,
                             help="max clips per NPC (default 40; more than enough "
                                  "for zero-shot cloning)")
+    p_manifest.add_argument("--paths", action="store_true",
+                            help="emit file paths instead of FileDataIDs, for "
+                                 "batch CASC extractors that take a file list")
 
     args = parser.parse_args()
     return {
