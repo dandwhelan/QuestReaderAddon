@@ -57,13 +57,13 @@ python3 voice_sources.py index
 # What speech exists for an NPC?
 python3 voice_sources.py lookup "Alleria Windrunner"
 
-# Which NPCs were voiced for a given patch? Writes one name per line.
+# Coverage and FileDataIDs for the NPCs voiced in a patch, in one step.
+python3 voice_sources.py report   --patch 120 1200 1205 1207 121
+python3 voice_sources.py manifest --patch 120 1200 1205 1207 121 -o ids.txt
+
+# Or work from a curated list instead, one name per line.
 python3 voice_sources.py patch 120 1200 1205 1207 121 -o npcs.txt
-
-# Coverage across a list of quest givers.
 python3 voice_sources.py report npcs.txt
-
-# FileDataIDs to feed the extraction step.
 python3 voice_sources.py manifest npcs.txt -o ids.txt
 ```
 

@@ -161,9 +161,10 @@ def read_names(path):
     except FileNotFoundError:
         sys.exit(
             f"No such file: {path}\n"
-            f"This command needs a text file listing NPC names, one per line.\n"
-            f"To generate one for a patch's voiced NPCs, run:\n"
-            f"    {os.path.basename(sys.argv[0])} patch 120 1205 1207 121 -o {path}"
+            f"To run against the NPCs voiced for a patch, skip the file "
+            f"entirely:\n"
+            f"    {os.path.basename(sys.argv[0])} {sys.argv[1]} "
+            f"--patch 120 1200 1205 1207 121"
         )
     if not names:
         sys.exit(f"{path} contains no names.")
@@ -175,8 +176,8 @@ def cmd_index(args):
     return 0
 
 
-def cmd_patch(args):
-    """List NPCs whose speech was recorded for particular patches.
+def npcs_for_patches(index, patches, min_clips=0):
+    """Rank the NPCs whose speech was recorded for particular patches.
 
     Voice files are named vo_<patch>_<npc>_<nn>.ogg, so the patch a line was
     recorded for is readable straight off the filename. That makes it possible
@@ -186,9 +187,7 @@ def cmd_patch(args):
     Note the prefixes are not zero-padded consistently: 12.1 appears as "121"
     while 12.0.7 appears as "1207", so patches are matched as literal strings.
     """
-    index = load_index()
-    wanted = set(args.patches)
-
+    wanted = set(patches)
     counts = {}
     for folder, clips in index.items():
         hits = sum(1 for _, filename in clips
@@ -197,11 +196,36 @@ def cmd_patch(args):
             counts[folder] = hits
 
     if not counts:
-        sys.exit(f"No voice-over found for patch(es): {', '.join(args.patches)}")
+        sys.exit(f"No voice-over found for patch(es): {', '.join(patches)}")
 
     ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
-    if args.min_clips:
-        ranked = [(f, c) for f, c in ranked if c >= args.min_clips]
+    if min_clips:
+        ranked = [(f, c) for f, c in ranked if c >= min_clips]
+    return ranked
+
+
+def select_names(index, args):
+    """Resolve the NPC list a command should operate on.
+
+    Accepts either a names file or --patch, so the common case of "the NPCs
+    voiced for this patch" does not require generating an intermediate file
+    first.
+    """
+    if getattr(args, "patch", None):
+        return [folder.replace("_", " ")
+                for folder, _ in npcs_for_patches(index, args.patch)]
+    if getattr(args, "names_file", None):
+        return read_names(args.names_file)
+    sys.exit(
+        "Give this command a list of NPCs, either way:\n"
+        "  --patch 120 1200 1205 1207 121   (NPCs voiced for those patches)\n"
+        "  npcs.txt                         (a file with one name per line)"
+    )
+
+
+def cmd_patch(args):
+    index = load_index()
+    ranked = npcs_for_patches(index, args.patches, args.min_clips)
 
     body = "\n".join(folder.replace("_", " ") for folder, _ in ranked)
     header = (f"# NPCs with voice-over recorded for patch(es) "
@@ -244,7 +268,7 @@ def cmd_lookup(args):
 
 def cmd_report(args):
     index = load_index()
-    names = read_names(args.names_file)
+    names = select_names(index, args)
 
     viable, weak, missing = [], [], []
     for name in names:
@@ -278,7 +302,7 @@ def cmd_report(args):
 
 def cmd_manifest(args):
     index = load_index()
-    names = read_names(args.names_file)
+    names = select_names(index, args)
 
     lines, skipped = [], []
     for name in names:
@@ -326,10 +350,16 @@ def main():
                           help="clips to list per NPC (default 10)")
 
     p_report = sub.add_parser("report", help="reference-audio coverage for a list of NPCs")
-    p_report.add_argument("names_file", help="file with one NPC name per line")
+    p_report.add_argument("names_file", nargs="?",
+                          help="file with one NPC name per line")
+    p_report.add_argument("--patch", nargs="+", metavar="PATCH",
+                          help="use the NPCs voiced for these patches instead")
 
     p_manifest = sub.add_parser("manifest", help="emit FileDataIDs for wow.export")
-    p_manifest.add_argument("names_file", help="file with one NPC name per line")
+    p_manifest.add_argument("names_file", nargs="?",
+                            help="file with one NPC name per line")
+    p_manifest.add_argument("--patch", nargs="+", metavar="PATCH",
+                            help="use the NPCs voiced for these patches instead")
     p_manifest.add_argument("-o", "--output")
     p_manifest.add_argument("--per-npc", type=int, default=40,
                             help="max clips per NPC (default 40; more than enough "
