@@ -168,9 +168,62 @@ clip count:
 - Six to thirty seconds of clean speech is typically enough. The `--per-npc`
   cap defaults to 40 clips, which is comfortably more than needed.
 
+## Harvesting quest text
+
+`QuestReaderHarvester/` is a companion addon that solves the half of the
+pipeline that cannot be datamined. Copy the folder into `Interface/AddOns/`,
+enable it, and play. It records the description, progress and completion text of
+every quest you interact with, along with the NPC who speaks each passage.
+
+The speaker is recorded **per passage, not per quest**: the NPC who offers a
+quest is frequently not the one who takes it back, and voicing the turn-in with
+the giver's voice is a mistake that can only be fixed by regenerating.
+
+```
+/qrharvest        show how much has been captured
+/qrharvest wipe   clear the store and start again
+```
+
+SavedVariables are written on logout or `/reload`, so `/qrharvest` reporting
+captures does not mean they are on disk yet. The file lands at:
+
+```
+World of Warcraft/_retail_/WTF/Account/<ACCOUNT>/SavedVariables/QuestReaderHarvester.lua
+```
+
+## Preparing text for synthesis
+
+`harvest_export.py` reads that file and emits one record per spoken passage —
+quest, speaker, and text with Blizzard's markup expanded into speech.
+
+```sh
+python3 harvest_export.py QuestReaderHarvester.lua -o passages.json
+python3 harvest_export.py QuestReaderHarvester.lua --format csv -o passages.csv
+```
+
+The expansion is the reason this step exists. Quest text is written to be read,
+not spoken, and a model handed it raw will pronounce the markup:
+
+| Markup | Becomes |
+| --- | --- |
+| `$n`, `$p` | the `--player-name` value, default "adventurer" |
+| `$r` / `$c` | "traveler" / "hero" |
+| `$b`, `\|n` | paragraph break |
+| `$g Lad:Lass;` | one side, chosen by `--gender` |
+| `\|4offering:offerings;` | the singular form |
+| `\|cFFFF0000...\|r` | stripped |
+
+Markup the script does not recognise is **reported rather than passed through**,
+so unknown tokens surface before generation instead of appearing in the audio.
+Passages with no NPC recorded are counted too — those come from objects and
+auto-accepted quests, and cannot be voice-matched without a manual assignment.
+
+The SavedVariables file is parsed rather than executed, so a file coming back
+from someone else's game client cannot run code.
+
 ## Next
 
-The remaining stages are text acquisition, text normalization (quest text is
-full of `$n`, `$r`, `$c`, `$b` and `$g male:female;` substitution tokens that
-must be expanded before synthesis), synthesis, and packaging. See the pipeline
+What remains is synthesis and packaging: clone each NPC from its reference
+audio, generate a clip per passage, loudness-normalize, measure durations to
+regenerate `SoundLengths.lua`, and package as a sound pack. See the pipeline
 plan for the full sequence.
