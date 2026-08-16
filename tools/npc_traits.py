@@ -22,6 +22,7 @@ Usage:
 import argparse
 import csv
 import os
+import re
 import sys
 import urllib.request
 
@@ -44,6 +45,11 @@ RACE = {
     "35": "Vulpera", "36": "Mag'har Orc", "37": "Mechagnome",
     "52": "Dracthyr", "70": "Dracthyr", "84": "Earthen", "85": "Haranir",
 }
+
+
+def fold(name):
+    """Reduce a display name to letters and digits, matching sound folders."""
+    return re.sub(r"[^a-z0-9]+", "", name.lower())
 
 
 def fetch_table(name, refresh=False):
@@ -69,7 +75,9 @@ def load_tables(refresh=False):
                 "displays": [d for d in displays if d and d != "0"],
             }
             creatures[row["ID"]] = record
-            by_name.setdefault(record["name"].lower(), row["ID"])
+            # Fold to the same shape the sound folders use, so a name arriving
+            # as "zuljarra" still finds the creature named "Zul'jarra".
+            by_name.setdefault(fold(record["name"]), row["ID"])
 
     display_to_extra = {}
     with open(fetch_table("CreatureDisplayInfo", refresh), encoding="utf-8",
@@ -93,7 +101,7 @@ def resolve(name_or_id, tables):
     creatures, by_name, display_to_extra, extras = tables
     key = str(name_or_id).strip()
     creature_id = key if key.isdigit() and key in creatures \
-        else by_name.get(key.lower())
+        else by_name.get(fold(key))
     if not creature_id:
         return None
 

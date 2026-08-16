@@ -355,6 +355,37 @@ published tables do not resolve at all. In practice this matters less than it
 sounds, because the NPCs that fail to resolve are mostly unique named
 characters, and those are the ones that already have reference audio to clone.
 
+## Building the fallback voice bank
+
+`voice_bank.py` turns the trait lookup into an actual assignment: one stand-in
+voice per race and sex, applied to every NPC in that group.
+
+```sh
+python3 voice_bank.py --names npcs.txt -o voicebank.json
+python3 voice_bank.py --names npcs.txt --report
+```
+
+Donors are chosen in two tiers. The game already ships around 160 **generic
+voice pools** — `generic_blood_elf_citizen_a`, `generic_stormwind_human`,
+`generic_amani_civilian` — recorded as anonymous members of a race or faction.
+Those are preferred, because they were made for exactly this and carry no
+recognisable personality. Where no pool matches the race, the best-recorded
+named NPC of that race and sex is used instead.
+
+A pool only matches when **every** word of the race name appears in it. Matching
+on partial overlap put night elves on a blood elf pool, since both contain
+"elf".
+
+Groups with no viable donor are reported rather than filled with something
+unsuitable — those are a judgement call, not something to guess at.
+
+### Feed it real NPC names
+
+Pass the NPCs from `passages.json` (step 3 of the pipeline), not `--patch`.
+The patch list comes from *sound folder* names, and many of those are voice
+sets rather than creatures — `generic_zulaman_troll_forest_tribe_civilian` is a
+pool, not an NPC, so it will not resolve against the creature tables.
+
 ## Generating the audio
 
 `synthesize.py` matches each passage's speaker to that NPC's reference clips
