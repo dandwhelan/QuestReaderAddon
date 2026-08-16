@@ -7,50 +7,27 @@ local optionalSoundPacks = {
     "QuestReaderAddon_TWW_FR"
 }
 
--- Initialize the saved variable if it doesn't exist
-QuestReaderAddonDB = QuestReaderAddonDB or {}
-QuestReaderAddonDB.minimapButton = QuestReaderAddonDB.minimapButton or { hide = false }
-QuestReaderAddonDB.showMinimapButton = QuestReaderAddonDB.showMinimapButton ~= nil and QuestReaderAddonDB.showMinimapButton or true
-if QuestReaderAddonDB.autoPlayEnabled == nil then
-    QuestReaderAddonDB.autoPlayEnabled = true
-else
-    QuestReaderAddonDB.autoPlayEnabled = QuestReaderAddonDB.autoPlayEnabled
-end
-if QuestReaderAddonDB.muteGossip == nil then
-    QuestReaderAddonDB.muteGossip = true
-else
-    QuestReaderAddonDB.muteGossip = QuestReaderAddonDB.muteGossip
-end
-if QuestReaderAddonDB.stopDialogueOnClose == nil then
-    QuestReaderAddonDB.stopDialogueOnClose = true
-else
-    QuestReaderAddonDB.stopDialogueOnClose = QuestReaderAddonDB.stopDialogueOnClose
-end
+-- Default values for saved settings. SavedVariables are not populated until
+-- ADDON_LOADED fires, so defaults are applied in InitializeAddonDB rather than
+-- at file scope, where they would be overwritten by the saved variables file.
+local defaultSettings = {
+    showMinimapButton = true,
+    autoPlayEnabled = true,
+    muteGossip = true,
+    stopDialogueOnClose = true,
+}
 
 local function InitializeAddonDB()
     QuestReaderAddonDB = QuestReaderAddonDB or {}
     QuestReaderAddonDB.minimapButton = QuestReaderAddonDB.minimapButton or { hide = false }
-    if QuestReaderAddonDB.showMinimapButton == nil then
-        QuestReaderAddonDB.showMinimapButton = true
+    QuestReaderAddonDB.minimapIconPosition = QuestReaderAddonDB.minimapIconPosition or {}
+
+    for option, default in pairs(defaultSettings) do
+        if QuestReaderAddonDB[option] == nil then
+            QuestReaderAddonDB[option] = default
+        end
     end
-    if QuestReaderAddonDB.minimapIconPosition == nil then
-        QuestReaderAddonDB.minimapIconPosition = {}
-    end
-    if QuestReaderAddonDB.autoPlayEnabled == nil then
-        QuestReaderAddonDB.autoPlayEnabled = true
-    else
-        QuestReaderAddonDB.autoPlayEnabled = QuestReaderAddonDB.autoPlayEnabled
-    end
-    if QuestReaderAddonDB.muteGossip == nil then
-        QuestReaderAddonDB.muteGossip = true
-    else
-        QuestReaderAddonDB.muteGossip = QuestReaderAddonDB.muteGossip
-    end
-    if QuestReaderAddonDB.stopDialogueOnClose == nil then
-        QuestReaderAddonDB.stopDialogueOnClose = true
-    else
-        QuestReaderAddonDB.stopDialogueOnClose = QuestReaderAddonDB.stopDialogueOnClose
-    end
+
     QuestReaderAddonDB.IsPaused = false
     QuestReaderAddonDB.IsSoundPaused = false
 end
@@ -128,21 +105,14 @@ loadingFrame:SetScript("OnEvent", function(self, event, loadedAddonName)
         DetectSoundPacks()
     end
 end)
--- Create the button for the QuestFrame
-local questFrameButton = CreateFrame("Button", "QuestReaderButtonFrame", QuestFrame, "UIPanelButtonTemplate")
-questFrameButton:SetSize(90, 21) -- Adjusted size to match the working file
-questFrameButton:SetText("Read Quest") -- Set the text on the button
-questFrameButton:SetPoint("BOTTOMRIGHT", QuestFrame, "BOTTOMRIGHT", -120, 4)
-
-questFrameButton:SetScript("OnClick", function()
-    PlayQuestAudio(nil, true)
-end)
-
-local loadingFrame = CreateFrame("Frame")
-loadingFrame:RegisterEvent("ADDON_LOADED")
+-- Quest frame buttons are created from InitializeQuestFrameButtons on
+-- ADDON_LOADED. Creating them at file scope as well produced a second,
+-- identical button stacked on the first under the same global name.
+local questButtonFrame = CreateFrame("Frame")
+questButtonFrame:RegisterEvent("ADDON_LOADED")
 
 local function InitializeQuestFrameButtons()
-    -- Create the button for the QuestFrame (existing code)
+    -- Create the button for the QuestFrame
     local questFrameButton = CreateFrame("Button", "QuestReaderButtonFrame", QuestFrame, "UIPanelButtonTemplate")
     questFrameButton:SetSize(90, 21)
     questFrameButton:SetText("Read Quest")
@@ -166,10 +136,10 @@ local function InitializeQuestFrameButtons()
     end
 end
 
-loadingFrame:SetScript("OnEvent", function(self, event, loadedAddonName)
+questButtonFrame:SetScript("OnEvent", function(self, event, loadedAddonName)
     if loadedAddonName == addonName then
         InitializeQuestFrameButtons()
-        loadingFrame:UnregisterEvent("ADDON_LOADED")
+        questButtonFrame:UnregisterEvent("ADDON_LOADED")
     end
 end)
 
@@ -209,6 +179,8 @@ end
 addon.soundSources = {}
 addon.soundSources["QuestReaderAddon"] = QuestReaderSoundLengths
 addon.activeSound = nil
+-- Quest audio the player has encountered that no installed pack provides.
+addon.reportedMissing = {}
 
 -- Function to detect available sound packs
 function DetectSoundPacks()
@@ -220,9 +192,11 @@ function DetectSoundPacks()
             if loadable then
                 local pack = LoadSoundPackIfAvailable(depName)
                 if pack then
-                    addon.soundSources = { [name] = pack }  -- Use only the detected pack
+                    -- Merge rather than replace: overwriting dropped the sounds
+                    -- bundled with the base addon, and breaking here meant only
+                    -- one language pack could ever be active at a time.
+                    addon.soundSources[name] = pack
                     hasEntries = true
-                    break 
                 end
             end
         end
@@ -353,6 +327,13 @@ function PlayQuestAudio(textType, skipDelay)
         end
         
         if not soundPath then
+            -- Report the gap so players can tell "not recorded yet" apart from
+            -- a broken addon, and can report the ID. Deduplicated per session so
+            -- autoplay does not repeat the same line on every quest interaction.
+            if not addon.reportedMissing[soundFile] then
+                addon.reportedMissing[soundFile] = true
+                print("Quest Reader: no audio for quest " .. questID .. " (" .. textType .. ")")
+            end
             addon.activeSound = nil
             return
         end
@@ -430,6 +411,28 @@ SlashCmdList["QUESTREADERAUTO"] = function(msg)
         QuestReaderAddonDB.autoPlayEnabled = not QuestReaderAddonDB.autoPlayEnabled
     end
     print("Quest Reader Auto-Play: " .. (QuestReaderAddonDB.autoPlayEnabled and "Enabled" or "Disabled"))
+end
+
+-- Slash command to list quest audio missing from the installed sound packs.
+-- Prints the quest IDs encountered this session that have no audio, so they can
+-- be reported and queued for generation.
+SLASH_QUESTREADERMISSING1 = '/qrmissing'
+SlashCmdList["QUESTREADERMISSING"] = function()
+    local missing = {}
+    for soundFile in pairs(addon.reportedMissing) do
+        table.insert(missing, soundFile)
+    end
+    table.sort(missing)
+
+    if #missing == 0 then
+        print("Quest Reader: no missing quest audio recorded this session.")
+        return
+    end
+
+    print("Quest Reader: " .. #missing .. " missing quest audio file(s) this session:")
+    for _, soundFile in ipairs(missing) do
+        print("  " .. soundFile)
+    end
 end
 
 local function SaveMinimapIconPosition()
