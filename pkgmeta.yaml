@@ -1,0 +1,17 @@
+package-as: QuestReaderAddon
+enable-nolib-creation: no
+
+ignore:
+  - README.md
+  - .github
+  - .git
+  - .gitignore
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
+license-output: LICENSE
+
+tools-used:
+  - curseforge-packager

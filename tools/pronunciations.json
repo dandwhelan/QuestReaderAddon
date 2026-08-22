@@ -1,0 +1,8 @@
+{
+  "_comment": "Phonetic respellings applied to quest text before synthesis, because a TTS model reads Warcraft proper nouns as English. Keys match whole words case-insensitively; apostrophes in keys are matched literally. Respellings are what the model should say, hyphenated by syllable. Only add an entry once the mispronunciation has been heard in generated audio and the respelling checked against the game's own voice-over.",
+  "Zul'Aman": "Zool-Ah-Mahn",
+  "Zul'jarra": "Zool-jar-rah",
+  "hash'ey": "hash-ay",
+  "hash'ura": "hash-oo-rah",
+  "Amani": "Ah-mah-nee"
+}

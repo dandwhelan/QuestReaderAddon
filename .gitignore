@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.venv*/
+tools/.venv*
+
+# IDE / Gemini / Scratch
+.gemini/
+scratch/
+tools/generated/
+tools/*_batch.json
+tools/latest_harvest.json
+tools/harvested_passages.json
+tools/missing_quests_to_gen.json
+tools/new_harvested_to_gen.json
+tools/plaque_*.json
+tools/tokka_gossip.json
+tools/message_in_a_bottle.json
+missing.txt
+npcs.txt
+
+# OS / Backups
+.DS_Store
+Thumbs.db
+*.bak
