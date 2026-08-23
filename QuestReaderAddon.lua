@@ -393,23 +393,35 @@ function PlayQuestAudio(textType, skipDelay)
     end
 end
 
+local function IsSecret(val)
+    if val == nil then return false end
+    if issecretvalue and issecretvalue(val) then return true end
+    if SecretUtil and SecretUtil.IsSecretValue and SecretUtil.IsSecretValue(val) then return true end
+    return false
+end
+
 -- "Creature-0-<server>-<instance>-<zone>-<creatureID>-<spawn>"
 -- Mirrors the harvester's own copy: the two never load together, so sharing
 -- code between them is not an option without a third file just for this.
 local function CreatureIDFromGUID(guid)
-    if not guid then
+    if not guid or IsSecret(guid) or type(guid) ~= "string" then
         return nil
     end
-    local unitType, _, _, _, _, creatureID = strsplit("-", guid)
-    if unitType == "Creature" or unitType == "Vehicle" then
+    local ok, unitType, _, _, _, creatureID = pcall(strsplit, "-", guid)
+    if ok and (unitType == "Creature" or unitType == "Vehicle") then
         return tonumber(creatureID)
     end
     return nil
 end
 
 function PlayGossipAudio()
-    local npcID = CreatureIDFromGUID(UnitGUID("npc"))
-    if not npcID then
+    local guid = UnitGUID("npc")
+    if not guid or IsSecret(guid) then
+        return
+    end
+
+    local npcID = CreatureIDFromGUID(guid)
+    if not npcID or IsSecret(npcID) then
         return
     end
 
@@ -471,15 +483,29 @@ local function PlayItemAudioDirect(itemLink, page)
     end
 
     page = page or 1
-    local itemID = tonumber(itemLink:match("item:(%d+)"))
+    local itemID
+    if itemLink then
+        pcall(function()
+            itemID = tonumber(itemLink:match("item:(%d+)"))
+        end)
+    end
     local baseNames = {}
 
     if itemID then
         table.insert(baseNames, "item" .. itemID .. "_page" .. page)
-    else
-        local clean = itemLink:lower():gsub("[^%w%s]", ""):gsub("%s+", "_")
-        table.insert(baseNames, "item_" .. clean .. "_page" .. page)
-        table.insert(baseNames, clean .. "_page" .. page)
+    elseif itemLink then
+        local clean
+        local ok = pcall(function()
+            clean = itemLink:lower():gsub("[^%w%s]", ""):gsub("%s+", "_")
+        end)
+        if ok and clean and clean ~= "" then
+            table.insert(baseNames, "item_" .. clean .. "_page" .. page)
+            table.insert(baseNames, clean .. "_page" .. page)
+        end
+    end
+
+    if #baseNames == 0 then
+        return
     end
 
     local soundFile, soundPath
@@ -545,7 +571,9 @@ function PlayItemAudio(page)
     local itemLink = ItemTextGetItem()
     if not itemLink or itemLink == "" then
         if DUIBookFrame and DUIBookFrame.Header and DUIBookFrame.Header.Title then
-            itemLink = DUIBookFrame.Header.Title:GetText()
+            pcall(function()
+                itemLink = DUIBookFrame.Header.Title:GetText()
+            end)
         end
     end
     if not itemLink or itemLink == "" then

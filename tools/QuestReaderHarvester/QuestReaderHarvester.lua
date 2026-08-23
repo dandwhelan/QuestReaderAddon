@@ -25,13 +25,20 @@ local function InitializeDB()
     QuestReaderHarvesterDB.build = select(2, GetBuildInfo())
 end
 
+local function IsSecret(val)
+    if val == nil then return false end
+    if issecretvalue and issecretvalue(val) then return true end
+    if SecretUtil and SecretUtil.IsSecretValue and SecretUtil.IsSecretValue(val) then return true end
+    return false
+end
+
 -- "Creature-0-<server>-<instance>-<zone>-<creatureID>-<spawn>"
 local function CreatureIDFromGUID(guid)
-    if not guid then
+    if not guid or IsSecret(guid) or type(guid) ~= "string" then
         return nil
     end
-    local unitType, _, _, _, _, creatureID = strsplit("-", guid)
-    if unitType == "Creature" or unitType == "Vehicle" then
+    local ok, unitType, _, _, _, creatureID = pcall(strsplit, "-", guid)
+    if ok and (unitType == "Creature" or unitType == "Vehicle") then
         return tonumber(creatureID)
     end
     return nil
@@ -40,9 +47,17 @@ end
 local function CurrentSpeaker()
     -- During a quest frame the quest giver is the interacted unit, so the
     -- speaker comes for free alongside the text.
+    local guid = UnitGUID("npc")
+    local name = UnitName("npc")
+    if IsSecret(guid) then
+        guid = nil
+    end
+    if IsSecret(name) then
+        name = nil
+    end
     return {
-        id = CreatureIDFromGUID(UnitGUID("npc")),
-        name = UnitName("npc"),
+        id = CreatureIDFromGUID(guid),
+        name = name,
     }
 end
 
@@ -77,9 +92,18 @@ local function Detokenize(text)
         if not name or name == "" then
             return text
         end
-        playerNamePattern = EscapePattern(name)
+        local ok, escaped = pcall(EscapePattern, name)
+        if ok and escaped then
+            playerNamePattern = escaped
+        else
+            return text
+        end
     end
-    return (text:gsub(playerNamePattern, "$n"))
+    local ok, res = pcall(function() return (text:gsub(playerNamePattern, "$n")) end)
+    if ok and res then
+        return res
+    end
+    return text
 end
 
 -- Race, class and gender decide which branch of $r/$c/$g the server rendered
@@ -218,13 +242,28 @@ harvester:SetScript("OnEvent", function(self, event, loadedAddon)
 
     if event == "ITEM_TEXT_READY" then
         local itemLink = ItemTextGetItem()
-        local itemID = itemLink and tonumber(itemLink:match("item:(%d+)"))
-        local itemName = itemLink and itemLink:match("%[(.-)%]") or ItemTextGetItem()
+        local itemID, itemName
+        if itemLink then
+            pcall(function()
+                itemID = tonumber(itemLink:match("item:(%d+)"))
+                itemName = itemLink:match("%[(.-)%]")
+            end)
+        end
+        if not itemName then
+            local ok, rawItem = pcall(ItemTextGetItem)
+            if ok and type(rawItem) == "string" then
+                itemName = rawItem
+            end
+        end
         local page = ItemTextGetPage() or 1
         local text = ItemTextGetText()
         RecordItemText(itemID, itemName, page, text)
         if ShouldPrintDebug() then
-            print("SpeakStone Harvester: captured '" .. (itemName or "item") .. "' (Page " .. page .. ")")
+            local display = "item"
+            if type(itemName) == "string" then
+                pcall(function() display = itemName end)
+            end
+            print("SpeakStone Harvester: captured '" .. display .. "' (Page " .. page .. ")")
         end
         return
     end
@@ -348,14 +387,25 @@ local function ShowExportFrame()
         indent = indent or ""
         local lines = {}
         for k, v in pairs(tbl) do
-            local keyStr = type(k) == "number" and ("[" .. k .. "]") or ('["' .. tostring(k) .. '"]')
-            if type(v) == "table" then
-                table.insert(lines, indent .. keyStr .. " = {\n" .. SimpleSerialize(v, indent .. "  ") .. indent .. "},")
-            elseif type(v) == "string" then
-                local escaped = v:gsub("\\", "\\\\"):gsub('"', '\\"'):gsub("\r", "\\r"):gsub("\n", "\\n")
-                table.insert(lines, indent .. keyStr .. ' = "' .. escaped .. '",')
-            elseif type(v) == "number" or type(v) == "boolean" then
-                table.insert(lines, indent .. keyStr .. " = " .. tostring(v) .. ",")
+            local keyOk, keyStr = pcall(function()
+                return type(k) == "number" and ("[" .. k .. "]") or ('["' .. tostring(k) .. '"]')
+            end)
+            if keyOk then
+                if type(v) == "table" then
+                    table.insert(lines, indent .. keyStr .. " = {\n" .. SimpleSerialize(v, indent .. "  ") .. indent .. "},")
+                elseif type(v) == "string" then
+                    local ok, escaped = pcall(function()
+                        return v:gsub("\\", "\\\\"):gsub('"', '\\"'):gsub("\r", "\\r"):gsub("\n", "\\n")
+                    end)
+                    if ok then
+                        table.insert(lines, indent .. keyStr .. ' = "' .. escaped .. '",')
+                    end
+                elseif type(v) == "number" or type(v) == "boolean" then
+                    local ok, valStr = pcall(tostring, v)
+                    if ok then
+                        table.insert(lines, indent .. keyStr .. " = " .. valStr .. ",")
+                    end
+                end
             end
         end
         return table.concat(lines, "\n") .. "\n"
