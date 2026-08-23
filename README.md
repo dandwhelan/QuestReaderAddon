@@ -1,19 +1,30 @@
-# WoW - Quest Reader
+# WoW - Quest Reader (SpeakStone Narration)
 
 World of Warcraft addon that reads quest text aloud using AI voices cloned from
 each NPC's own in-game dialogue. Every quest description, progress and
 completion line has a generated audio file, synthesized from a clone of the
-voice that quest giver actually uses in the game.
+voice that quest giver actually uses in the game. Books, item text and gossip
+get the same treatment where audio exists.
 
-Currently voices **The War Within** and **Midnight** (12.0–12.1) content.
-Older expansions are not covered.
+Currently voices **The War Within** and **Midnight** (12.0–12.1) content most
+heavily. Coverage of other expansions is real but partial and growing — see
+"Per-expansion companion packs" below for the actual numbers, which are far
+from complete for anything before Dragonflight.
+
+This is a working hobby tool with real rough edges: most of the library is
+still unmapped to an expansion, gossip audio is thin because it can't be
+scraped, and generation for the whole game would take on the order of months
+of GPU time. It's actively being built out, not a finished product.
 
 ## Installation
 
 If downloading directly, grab the latest release from
 [the Releases page](https://github.com/clhammer89/wow-questreader/releases)
 and unzip the whole folder into your WoW AddOns directory, generally
-`C:\Program Files (x86)\World of Warcraft\_retail_\Interface\AddOns`.
+`C:\Program Files (x86)\World of Warcraft\_retail_\Interface\AddOns`. If you
+want expansion coverage beyond the base addon's bundled library, also install
+the matching `QuestReaderAddon_Pack_<Expansion>` companion addon(s) — see
+below for why those are separate.
 
 This adds a "Read Quest" button to the bottom of the quest frame, and reads
 quest text automatically as you progress through it. Addon options let you
@@ -22,6 +33,34 @@ toggle the minimap button and auto-read.
 If you use a quest UI addon like Immersion, make sure auto-play is turned on
 in Quest Reader's own settings — Immersion's custom frame doesn't trigger the
 addon's normal hooks otherwise.
+
+## Why the addon is split into a base addon plus per-expansion packs
+
+The base addon ships with its own bundled `Sounds/` library and
+`SoundLengths.lua` index. As coverage grows toward the whole game, that
+library would eventually blow past two hard ceilings: CurseForge rejects any
+single project file over 500 MB, and a git repository carrying gigabytes of
+binary audio in its history becomes unworkable to clone, fork or host (this
+project's own repo history briefly reached several GB before being rewritten
+to control it).
+
+The fix is to split newer/less-common audio into separate companion addons —
+`QuestReaderAddon_Pack_<Expansion>` — each with its own small `Sounds/`
+folder, its own `SoundLengths.lua` (under its own global variable name, e.g.
+`QuestReaderSoundLengths_Pack_Cataclysm`), and a `Register.lua` that hands its
+index to the base addon at load time via
+`QuestReaderAddon_RegisterSoundPack(packName, soundLengths)`. The base addon
+merges every registered pack's index into one lookup table
+(`addon.soundSources`) and, when it's time to play a clip, checks every
+registered source for a match (preferring `.ogg` over `.wav`) — the player
+never sees a seam between "bundled" and "pack" audio, they just get a missing
+line or a spoken one.
+
+Quest audio that hasn't yet been mapped to a specific expansion lands in an
+`Unsorted` pack rather than being dropped or guessed at — mapping quest IDs to
+expansions turns out to be a real, still-partial research problem (see the
+walkthrough for why). As of the last pack build, the large majority of
+already-generated audio is still sitting in `Unsorted`.
 
 ## Commands
 
@@ -141,7 +180,15 @@ A few things about how a clone is built matter more than they look:
   first try. `tools/pronunciations.json` is a small, deliberately
   hand-curated lexicon of respellings for names the model gets wrong,
   applied to text before it reaches the engine. It only grows by listening —
-  never by guessing in advance.
+  never by guessing in advance. The current fix is the smallest one that
+  works: strip the apostrophe so the name reads as one word
+  (`"Zul'Aman"` → `"Zulaman"`). An earlier, more elaborate approach spelled
+  names out phonetically with hyphens (`"Zool-Ah-Mahn"`); it was tried and
+  rejected on listening — every hyphen invites a small pause, so a
+  three-hyphen name comes out as separate stressed pieces instead of one
+  word, and it measurably lengthened clips too. The lookup itself has to
+  match the *longest* candidate name first (`"Amani'Zar"` before `"Amani"`),
+  or a short name that happens to be a prefix of a longer one gets mangled.
 
 ### Filling the gaps: NPCs with no voice of their own
 
@@ -187,7 +234,16 @@ tools/voice_bank.py          Assign a stand-in voice to NPCs with none
 tools/synthesize.py          Generate the actual audio (F5-TTS by default)
 tools/build_soundlengths.py  Rebuild the index the addon reads
 tools/convert_library.py     Shrink the genuine-PCM slice of the library
+tools/build_sound_packs.py   Split the library into per-expansion packs
+tools/publish_packs.py       Push each pack to its own repo
 ```
+
+`tools/run_batch.py` wraps most of this into one command for routine use —
+fetch new quest text from the companion website, synthesize, install, rebuild
+the index, and optionally tell the website what's now voiced — and
+`tools/wake_when_work.py` can wake a sleeping GPU machine over LAN when work
+shows up. See `docs/walkthrough.md` for the actual step-by-step operator
+process, including the safety gates around rebuilding `SoundLengths.lua`.
 
 `tools/README.md` covers all of this in far more depth, including exact
 commands, what each generation setting actually does and why, and the

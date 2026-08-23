@@ -390,9 +390,10 @@ pool, not an NPC, so it will not resolve against the creature tables.
 ## Generating the audio
 
 `synthesize.py` matches each passage's speaker to that NPC's reference clips
-and generates one file per passage. The default engine is Coqui XTTS-v2, which
-clones zero-shot from a few seconds of audio and outputs at 24 kHz, the rate the
-addon already ships.
+and generates one file per passage. The default engine is F5-TTS, run from its
+own `tools/.venv-f5` environment; it clones zero-shot from a few seconds of
+audio and outputs at 24 kHz, the rate the addon already ships. Coqui XTTS-v2 is
+still selectable with `--engine xtts` and wants an environment of its own.
 
 ```sh
 python3 synthesize.py passages.json --reference ./reference-audio --dry-run
@@ -402,15 +403,26 @@ python3 synthesize.py passages.json --reference ./reference-audio --dry-run
 
 Warcraft proper nouns are not English, and the model reads them as if they
 were — the first Zul'Aman anyone listened to came out wrong.
-`pronunciations.json` beside the script maps known offenders to phonetic
-respellings ("Zul'Aman" → "Zool-Ah-Mahn"), applied to the text before it
-reaches the engine. Matching is case-insensitive on whole words, and
-possessives are handled ("Zul'Aman's" respells too).
+`pronunciations.json` beside the script maps known offenders to a respelling
+applied before the text reaches the engine. Matching is case-insensitive on
+whole words, and possessives are handled ("Zul'Aman's" respells too).
 
-Grow it by listening, not by guessing: add an entry when a generated clip
-gets a name wrong, and check the respelling against the game's own
-voice-over for that word before trusting it. `--lexicon` points elsewhere;
-an empty or missing file disables the pass.
+The apostrophe is the actual problem: the model reads it as a possessive or a
+hard glottal stop. So the respelling simply drops it and lets the halves run
+together — "Zul'Aman" → "Zulaman", "Atal'Utek" → "Atalutek".
+
+Full phonetic hyphenation was tried first ("Zool-Ah-Mahn") and rejected by
+ear: every hyphen invites a micro-break, so a three-hyphen name is read as
+separate stressed pieces and the delivery turns choppy. Measured, it also
+lengthened clips ~5.8% and roughly doubled the count of small internal
+pauses. See `_why_not_phonetic` in the file itself.
+
+Note the keys are matched longest-first, and that is load-bearing: "Amani" is
+a prefix of "Amani'Zar", and the trailing guard deliberately allows an
+apostrophe so possessives match. Re-sorting the keys any other way silently
+breaks the longer names.
+
+`--lexicon` points elsewhere; an empty or missing file disables the pass.
 
 ### What happens to the audio
 
