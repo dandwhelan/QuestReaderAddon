@@ -278,7 +278,7 @@ def report_timing(entry, history):
         for size in (50, 250, 1000):
             minutes = size * average / 60
             shape = "minutes" if minutes < 30 else "hours" if minutes < 600 else "overnight"
-            log(f"    {size:>5} clips ≈ {minutes:>6.0f} min  ({shape})")
+            log(f"    {size:>5} clips ~ {minutes:>6.0f} min  ({shape})")
 
 
 # --------------------------------------------------------------------------

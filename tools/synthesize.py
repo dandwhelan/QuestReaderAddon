@@ -90,6 +90,27 @@ TARGET_LUFS = -16.0
 # whole voice needs a target measured across a speaker, not one utterance.
 
 
+# The harvester reverts the player's own name to "$n" before anything is
+# written, so harvested text carries the token rather than whoever happened to
+# capture it (see QuestReaderHarvester.lua). Something still has to be said
+# aloud in its place: "champion" is what the game itself falls back to when it
+# addresses you without a name, and it survives being heard by any player.
+#
+# $g/$G carry a "male:female;" branch. Nothing in a harvested line records which
+# branch the listener should hear -- that is the player's own gender, not the
+# speaker's -- so take the first and move on. Left unhandled the model reads the
+# punctuation aloud, which is worse than picking.
+PLAYER_NAME_TOKEN = re.compile(r"\$[nN]")
+GENDER_TOKEN = re.compile(r"\$[gG]\s*([^:;]*):([^;]*);?")
+
+
+def render_tokens(text, player_term="champion"):
+    """Turn the server's substitution tokens into speakable words."""
+    text = PLAYER_NAME_TOKEN.sub(player_term, text)
+    text = GENDER_TOKEN.sub(lambda m: m.group(1).strip(), text)
+    return text
+
+
 def load_lexicon(path):
     """Compile the pronunciation lexicon into one substitution pass.
 
@@ -383,10 +404,22 @@ def main():
                         help="skip Ogg encoding and leave WAV output")
     parser.add_argument("--no-normalize", action="store_true",
                         help="skip loudness matching and silence trimming")
-    parser.add_argument("--speed", type=float, default=1.0,
+    parser.add_argument("--speed", type=float, default=1.1,
                         help="playback speed applied at encode time, e.g. "
-                             "1.1 for 10%% faster (default 1.0). Pitch is "
+                             "1.1 for 10%% faster (default 1.1). Pitch is "
                              "held constant; only pace changes")
+    parser.add_argument("--narrator-speed", type=float, default=1.3,
+                        help="speed for narrated passages -- those with no "
+                             "NPC, read by --narrator. They run slower than "
+                             "dialogue does, so they carry more (default 1.3)")
+    parser.add_argument("--narrator", default="chen_stormstout",
+                        help="reference folder to narrate passages that have "
+                             "no NPC at all: books, objects, item text. Unlike "
+                             "--default-voice this does not stand in for named "
+                             "NPCs, who should sound like themselves")
+    parser.add_argument("--player-term", default="champion",
+                        help="what to say where the harvested text carries "
+                             "$n, the player's own name (default champion)")
     parser.add_argument("--lexicon",
                         default=os.path.join(
                             os.path.dirname(os.path.abspath(__file__)),
@@ -450,6 +483,16 @@ def main():
             sys.exit(f"--default-voice {args.default_voice!r} matches no "
                      f"folder under {args.reference}.")
 
+    # Passages with no NPC are books, plaques and item text -- nobody is
+    # speaking them, so they get a narrator rather than a stand-in for an NPC
+    # who does not exist.
+    narrator_clips = None
+    if args.narrator:
+        narrator_clips = voices.get(fold_name(args.narrator))
+        if not narrator_clips:
+            sys.exit(f"--narrator {args.narrator!r} matches no folder under "
+                     f"{args.reference}.")
+
     respell = load_lexicon(args.lexicon)
     planned, done, novoice = [], 0, {}
     for passage in passages:
@@ -466,7 +509,10 @@ def main():
             done += 1
             continue
 
+        narrated = not passage.get("npcName")
         clips = match_voice(voices, passage.get("npcName"), fallback)
+        if not clips and narrated and narrator_clips:
+            clips = narrator_clips
         if not clips and default_clips:
             clips = default_clips
         if not clips:
@@ -476,10 +522,12 @@ def main():
             novoice[passage.get("npcName") or "(no NPC)"] += 1
             continue
 
-        text = respell(passage["text"]) if respell else passage["text"]
+        text = render_tokens(passage["text"], args.player_term)
+        text = respell(text) if respell else text
         planned.append((target, text,
                         pick_references(clips, budget=args.reference_seconds),
-                        passage.get("npcName")))
+                        passage.get("npcName"),
+                        args.narrator_speed if narrated else args.speed))
 
     print(f"\n  to generate : {len(planned):>5}", file=sys.stderr)
     print(f"  already done: {done:>5}", file=sys.stderr)
@@ -501,13 +549,13 @@ def main():
 
     engine = load_engine(args.engine, args.device, args.language)
     failures = 0
-    for position, (target, text, clips, npc) in enumerate(planned, 1):
+    for position, (target, text, clips, npc, speed) in enumerate(planned, 1):
         wav_target = target[:-4] + ".wav" if target.endswith(".ogg") else target
         try:
             engine.synthesize(text, clips, npc or "(no NPC)", wav_target)
             if not args.keep_wav:
                 encode_ogg(wav_target, target,
-                           normalize=not args.no_normalize, speed=args.speed)
+                           normalize=not args.no_normalize, speed=speed)
         except Exception as exc:  # engine and codec failures are both fatal
             failures += 1                                # to this clip only
             print(f"  failed {os.path.basename(target)} ({npc}): {exc}",

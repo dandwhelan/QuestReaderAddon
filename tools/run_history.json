@@ -7,5 +7,14 @@
     "characters": 9476,
     "seconds_per_clip": 37.6,
     "chars_per_second": 63.0
+  },
+  {
+    "at": "2026-08-23T10:55:58",
+    "passages": 3,
+    "clips": 3,
+    "seconds": 137.2,
+    "characters": 875,
+    "seconds_per_clip": 45.73,
+    "chars_per_second": 6.4
   }
 ]
