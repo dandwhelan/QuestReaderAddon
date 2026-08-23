@@ -1,0 +1,184 @@
+#!/usr/bin/env python3
+"""Harvest quest text from Wowhead, oldest-ID-first, splitting output into
+one tools/harvested_<expansion>.json per expansion (matching passages.json's
+schema), and updating tools/quest_expansions.json as it goes.
+
+Resumable: skips IDs already present in quest_expansions.json (checked) and
+skips passages already present in passages.json / harvested_new.json / any
+tools/harvested_*.json. Cached HTML pages are reused automatically.
+
+Usage:
+    python tools/harvest_by_expansion.py --ids tools/todo_all.txt --delay 1.5
+"""
+import argparse
+import json
+import os
+import re
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from wowhead_quests import fetch, extract, read_ids, Blocked
+from harvest_export import normalize
+
+ADDED_IN = re.compile(r"Added in World of Warcraft:\s*([^<\">.\n]+)")
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+EXPANSIONS_PATH = os.path.join(REPO_ROOT, "tools", "quest_expansions.json")
+TOOLS_DIR = os.path.join(REPO_ROOT, "tools")
+
+SLUG = {
+    "Classic": "classic",
+    "The Burning Crusade": "tbc",
+    "Wrath of the Lich King": "wotlk",
+    "Cataclysm": "cataclysm",
+    "Mists of Pandaria": "mop",
+    "Warlords of Draenor": "wod",
+    "Legion": "legion",
+    "Battle for Azeroth": "bfa",
+    "Shadowlands": "shadowlands",
+    "Dragonflight": "dragonflight",
+    "The War Within": "war_within",
+    "Midnight": "midnight",
+}
+
+
+def load_json(path, default):
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as h:
+            return json.load(h)
+    return default
+
+
+def save_json(path, data):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as h:
+        json.dump(data, h, indent=2, ensure_ascii=False)
+        h.write("\n")
+    os.replace(tmp, path)
+
+
+def harvested_path(expansion):
+    slug = SLUG.get(expansion, re.sub(r"[^a-z0-9]+", "_", expansion.lower()))
+    return os.path.join(TOOLS_DIR, f"harvested_{slug}.json")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--ids", required=True)
+    ap.add_argument("--delay", type=float, default=1.5)
+    ap.add_argument("--limit", type=int, default=None,
+                     help="stop after this many fetches this run")
+    args = ap.parse_args()
+
+    ids = read_ids(args.ids)
+    expansions = load_json(EXPANSIONS_PATH, {})
+
+    # Pre-load existing text so we don't re-add duplicates.
+    existing_keys = set()
+    for name in ("passages.json",
+                 os.path.join("tools", "harvested_new.json")):
+        p = os.path.join(REPO_ROOT, name)
+        if os.path.exists(p):
+            d = load_json(p, {"passages": []})
+            for rec in d.get("passages", []):
+                existing_keys.add((rec["questID"], rec["passage"]))
+    exp_files = {}  # expansion -> data dict, loaded lazily
+
+    def get_exp_data(expansion):
+        if expansion not in exp_files:
+            path = harvested_path(expansion)
+            data = load_json(path, {"source": "wowhead", "passages": []})
+            for rec in data["passages"]:
+                existing_keys.add((rec["questID"], rec["passage"]))
+            exp_files[expansion] = (path, data)
+        return exp_files[expansion]
+
+    fetched = 0
+    new_expansions = 0
+    new_passages = 0
+    no_page = 0
+    counts_by_exp = {}
+
+    def checkpoint():
+        save_json(EXPANSIONS_PATH, expansions)
+        for path, data in exp_files.values():
+            save_json(path, data)
+
+    try:
+        for i, qid in enumerate(ids, 1):
+            key = str(qid)
+            if key in expansions:
+                continue  # already checked in a previous run
+
+            try:
+                page = fetch(qid, args.delay)
+            except Blocked as exc:
+                print(f"\nBLOCKED at quest {qid} (index {i}/{len(ids)}): {exc}",
+                      file=sys.stderr)
+                print("Stopping immediately per policy. Progress saved.",
+                      file=sys.stderr)
+                break
+
+            fetched += 1
+
+            if page:
+                m = ADDED_IN.search(page)
+                # The tag only exists to note expansion-ADDED content -- the
+                # base game's own quests were never "added in" anything, so
+                # they carry no line at all. A page that fetched fine (a 404
+                # already returned None above, so this is a real quest) with
+                # no match is original/Classic content by that same logic,
+                # not a failure to detect. Sampled 15 pages under quest ID
+                # 2000: 0 of 15 had the tag, all are pre-TBC quests -- this
+                # was previously treated as "no expansion", which threw the
+                # text away for every Classic quest fetched, one page at a
+                # time, at 1.5s each, for nothing.
+                expansion = m.group(1).strip() if m else "Classic"
+                expansions[key] = expansion
+                if expansion:
+                    new_expansions += 1
+                    title, passages = extract(qid, page)
+                    path, data = get_exp_data(expansion)
+                    for passage, (raw, speaker) in passages.items():
+                        if (qid, passage) in existing_keys:
+                            continue
+                        spoken, _leftovers = normalize(raw, "adventurer", "male")
+                        if not spoken:
+                            continue
+                        data["passages"].append({
+                            "questID": qid,
+                            "passage": passage,
+                            "title": title,
+                            "npcID": speaker[0] if speaker else "",
+                            "npcName": speaker[1] if speaker else "",
+                            "soundFile": f"{qid}_{passage}.ogg",
+                            "text": spoken,
+                        })
+                        existing_keys.add((qid, passage))
+                        new_passages += 1
+                        counts_by_exp[expansion] = counts_by_exp.get(expansion, 0) + 1
+            else:
+                expansions[key] = None
+                no_page += 1
+
+            if fetched % 20 == 0:
+                checkpoint()
+                print(f"  [{i}/{len(ids)}] fetched={fetched} "
+                      f"expansions_found={new_expansions} "
+                      f"new_passages={new_passages} no_page={no_page} "
+                      f"by_exp={counts_by_exp}", file=sys.stderr)
+
+            if args.limit and fetched >= args.limit:
+                print(f"Hit --limit {args.limit}, stopping.", file=sys.stderr)
+                break
+    finally:
+        checkpoint()
+
+    print(f"\nDone this run: fetched {fetched} pages, "
+          f"{new_expansions} with an expansion line, {no_page} with no page, "
+          f"{new_passages} new passages extracted.", file=sys.stderr)
+    print(f"By expansion: {counts_by_exp}", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

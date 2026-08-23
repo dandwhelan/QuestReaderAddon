@@ -6,6 +6,49 @@ local icon = LibStub("LibDBIcon-1.0")
 -- smaller file is preferred.
 SOUND_EXTENSIONS = { ".ogg", ".wav" }
 
+-- Sound packs (per-expansion audio, shipped as separate addons) merge their
+-- duration index in here, keyed by the pack's addon name. Every lookup below
+-- searches this whole table, so it does not matter how many packs are
+-- installed, or whether a given one is: an absent pack just never adds an
+-- entry, and the "no audio for this quest" path already used for gaps in the
+-- base library covers it too. No error, no crash, just silence.
+addon.soundSources = {}
+addon.soundSources["QuestReaderAddon"] = QuestReaderSoundLengths
+
+-- Expansion packs are independent addons, and WoW gives no guarantee about
+-- which of two independent addons finishes loading first. A pack that loads
+-- *before* this one has nowhere to register yet, so it drops itself into a
+-- plain global that exists regardless of load order; a pack that loads
+-- *after* calls this function directly. Either way the pack's audio becomes
+-- visible as soon as both sides have run, whichever order that happens in.
+--
+-- Packs call this as:
+--   QuestReaderAddon_RegisterSoundPack(addonName, ThisPackSoundLengths)
+-- falling back to the pending-queue global if it is not yet defined. See
+-- the example pack under packs/ for the exact two-line pattern.
+function QuestReaderAddon_RegisterSoundPack(packName, soundLengths)
+    if type(packName) ~= "string" or type(soundLengths) ~= "table" then
+        return
+    end
+    -- Merge rather than replace: overwriting dropped the sounds bundled
+    -- with the base addon in an earlier version of this mechanism, and
+    -- breaking here meant only one pack could ever be registered.
+    addon.soundSources[packName] = soundLengths
+end
+
+-- Drain anything a pack queued before this file ran (see above).
+if type(_G.QuestReaderPendingSoundPacks) == "table" then
+    for _, entry in ipairs(_G.QuestReaderPendingSoundPacks) do
+        QuestReaderAddon_RegisterSoundPack(entry.name, entry.index)
+    end
+    _G.QuestReaderPendingSoundPacks = nil
+end
+
+-- Legacy mechanism, kept for the existing TWW language packs: explicitly
+-- named OptionalDeps that this addon loads and merges itself, rather than
+-- the pack registering on its own. New expansion packs should prefer
+-- self-registration above; it does not require this addon to know their
+-- names in advance.
 local optionalSoundPacks = {
     "QuestReaderAddon_TWW_EN",
     "QuestReaderAddon_TWW_FR"
@@ -202,8 +245,9 @@ local function LoadSoundPackIfAvailable(addonName)
     return nil
 end
 
-addon.soundSources = {}
-addon.soundSources["QuestReaderAddon"] = QuestReaderSoundLengths
+-- addon.soundSources is initialised at file scope, above, so it exists
+-- before ADDON_LOADED fires and a pack that self-registers early has
+-- somewhere to land.
 addon.activeSound = nil
 -- Quest audio the player has encountered that no installed pack provides.
 addon.reportedMissing = {}

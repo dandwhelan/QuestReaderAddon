@@ -10,6 +10,11 @@ deliberately keeps every judgement call with you:
   * It never tells Speakstone anything has been voiced, unless you pass
     --tell-speakstone (it still never commits or pushes even then).
   * It never touches Sounds/ or SoundLengths.lua unless you pass --install.
+  * --audition sends generated clips to Speakstone's review queue instead of
+    marking them voiced -- a human approves or rejects each one there, and
+    that verdict is what eventually sets voiced_at. It refuses to run
+    together with --tell-speakstone, which sets voiced_at immediately: the
+    two flags disagree about whether a clip has been checked yet.
   * NPCs with no reference audio are reported, never quietly given a
     stand-in voice -- picking a donor is a judgement call, not a default.
 
@@ -33,6 +38,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime
 from pathlib import Path
@@ -227,6 +233,43 @@ def tell_speakstone(site, sound_files):
         f"{result['unmatched']:,} unmatched")
 
 
+def upload_for_audition(site, made, output_dir, batch_label):
+    """POST each generated clip to the review queue instead of telling
+    Speakstone it is voiced.
+
+    One request per clip, not a batch endpoint -- /api/audition/upload takes
+    raw audio as the body (same reasoning as fetch/tell: base64-in-JSON costs
+    a third more bytes, multipart needs a parser for one part), so there is
+    nowhere to put more than one clip per request anyway.
+    """
+    key = os.environ.get("SPEAKSTONE_KEY")
+    if not key:
+        raise Abort("SPEAKSTONE_KEY is not set -- cannot queue for audition.")
+
+    for name in made:
+        data = (output_dir / name).read_bytes()
+        query = urllib.parse.urlencode({"file": name, "batch": batch_label})
+        url = f"{site}/api/audition/upload?{query}"
+        request = urllib.request.Request(
+            url, data=data, method="POST",
+            headers={"X-Api-Key": key, "Content-Type": "application/octet-stream"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                result = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as error:
+            detail = "check SPEAKSTONE_KEY" if error.code == 401 else error.reason
+            raise Abort(f"POST {url} returned HTTP {error.code} ({detail}).")
+        except urllib.error.URLError as error:
+            raise Abort(f"Could not reach {site}: {error.reason}")
+
+        # Still worth queuing even with no matching passage (the shipped
+        # library predates Speakstone for some filenames) -- just say so,
+        # the same way the upload route itself does.
+        note = "" if result.get("knownPassage", True) else "  (no passage on the site for this file)"
+        log(f"  queued {name}{note}")
+
+
 # --------------------------------------------------------------------------
 # Timing
 # --------------------------------------------------------------------------
@@ -307,12 +350,24 @@ def main():
     parser.add_argument("--tell-speakstone", action="store_true",
                         help="after --install, POST to /api/voiced so newly "
                              "voiced passages stop being offered for export")
+    parser.add_argument("--audition", action="store_true",
+                        help="POST each generated clip to /api/audition/upload "
+                             "for a human to listen to, instead of marking it "
+                             "voiced -- mutually exclusive with --tell-speakstone")
     parser.add_argument("--dry-run", action="store_true",
                         help="fetch and report what would be synthesised, then stop")
     parser.add_argument("--watch", type=int, metavar="MINUTES",
                         help="keep running: check every MINUTES for new work "
                              "(implies --install once a batch is synthesised)")
     args = parser.parse_args()
+
+    # These disagree about whether a clip has been checked: --audition holds
+    # voiced_at back until a human approves it there, --tell-speakstone sets
+    # voiced_at the moment the file lands on disk. Doing both would mean the
+    # site claims a passage is done while its audio is still sitting in the
+    # unreviewed queue -- refuse rather than let the last one silently win.
+    if args.audition and args.tell_speakstone:
+        raise Abort("--audition and --tell-speakstone contradict each other -- pick one.")
 
     # --watch is phase 2: leave it running on the machine with the GPU and it
     # picks work up whenever Speakstone has some. Kept in this script rather
@@ -421,6 +476,19 @@ def once(args):
         if made and any(args.output.glob("*.wav")):
             log("\nConverting genuine PCM to Ogg (already-compressed files are left alone)")
             run([sys.executable, str(TOOLS / "convert_library.py"), str(args.output), "--replace"])
+
+        # ---- audition ------------------------------------------------------
+        # Deliberately before --install: queuing for review is the point of
+        # this flag, and it should work even on a run that never touches
+        # Sounds/ (e.g. --audition without --install, to get a batch in front
+        # of a human ear before deciding whether to ship it at all).
+        if args.audition:
+            if not made:
+                log("\nNothing new to audition.")
+            else:
+                batch_label = batch_path.stem if args.input else datetime.now().strftime("%Y-%m-%d")
+                log(f"\nQueuing {len(made):,} clip(s) for audition (batch={batch_label})...")
+                upload_for_audition(args.site, made, args.output, batch_label)
 
         # ---- install -----------------------------------------------------
         if not args.install:
