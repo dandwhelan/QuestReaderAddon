@@ -7,7 +7,8 @@ Speakstone, synthesize.py, convert_library.py and build_soundlengths.py, and
 deliberately keeps every judgement call with you:
 
   * It never commits and never pushes.
-  * It never tells Speakstone anything has been voiced.
+  * It never tells Speakstone anything has been voiced, unless you pass
+    --tell-speakstone (it still never commits or pushes even then).
   * It never touches Sounds/ or SoundLengths.lua unless you pass --install.
   * NPCs with no reference audio are reported, never quietly given a
     stand-in voice -- picking a donor is a judgement call, not a default.
@@ -197,6 +198,35 @@ def rebuild_index(sounds_dir, index_path, expected_new):
     return after
 
 
+def tell_speakstone(site, sound_files):
+    """POST to /api/voiced so the site stops offering what we just installed.
+
+    Same auth as fetch_batch (X-Api-Key), no DB access or repo checkout
+    needed on this machine -- the site does its own update.
+    """
+    key = os.environ.get("SPEAKSTONE_KEY")
+    if not key:
+        raise Abort("SPEAKSTONE_KEY is not set -- cannot tell Speakstone.")
+
+    url = f"{site}/api/voiced"
+    body = json.dumps({"soundFiles": sound_files}).encode("utf-8")
+    request = urllib.request.Request(
+        url, data=body, method="POST",
+        headers={"X-Api-Key": key, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        detail = "check SPEAKSTONE_KEY" if error.code == 401 else error.reason
+        raise Abort(f"POST {url} returned HTTP {error.code} ({detail}).")
+    except urllib.error.URLError as error:
+        raise Abort(f"Could not reach {site}: {error.reason}")
+
+    log(f"  sent {result['received']:,}, matched {result['matchedPassages']:,} passage(s), "
+        f"{result['unmatched']:,} unmatched")
+
+
 # --------------------------------------------------------------------------
 # Timing
 # --------------------------------------------------------------------------
@@ -274,6 +304,9 @@ def main():
     parser.add_argument("--skip-synth", action="store_true")
     parser.add_argument("--install", action="store_true",
                         help="copy generated audio into Sounds/ and rebuild the index")
+    parser.add_argument("--tell-speakstone", action="store_true",
+                        help="after --install, POST to /api/voiced so newly "
+                             "voiced passages stop being offered for export")
     parser.add_argument("--dry-run", action="store_true",
                         help="fetch and report what would be synthesised, then stop")
     parser.add_argument("--watch", type=int, metavar="MINUTES",
@@ -382,7 +415,10 @@ def once(args):
             log(f"\nSkipping synthesis; {len(made):,} file(s) already in {args.output}")
 
         # ---- convert -----------------------------------------------------
-        if made:
+        # convert_library.py exits non-zero when there is nothing to convert,
+        # which is not a failure here -- a rerun over an already-Ogg directory
+        # is the normal --skip-synth path. Only call it when it has work.
+        if made and any(args.output.glob("*.wav")):
             log("\nConverting genuine PCM to Ogg (already-compressed files are left alone)")
             run([sys.executable, str(TOOLS / "convert_library.py"), str(args.output), "--replace"])
 
@@ -397,6 +433,7 @@ def once(args):
             return 0
 
         copied = 0
+        installed = []
         args.sounds.mkdir(parents=True, exist_ok=True)
         for name in sorted(p.name for p in args.output.glob("*") if p.is_file()):
             source = args.output / name
@@ -408,18 +445,31 @@ def once(args):
                 continue
             shutil.copy2(source, target)
             copied += 1
+            installed.append(name)
         log(f"\nCopied {copied:,} new file(s) into {args.sounds.name}/")
 
         rebuild_index(args.sounds, args.index, expected_new=copied)
 
-        log(
-            f"\nDone in {time.time() - started:.0f}s.\n"
-            f"\nNothing has been committed and Speakstone has not been told. Next:\n"
-            f"  1. git add -A && git commit   (review the diff first)\n"
-            f"  2. tell Speakstone what is now voiced:\n"
-            f"     drag SoundLengths.lua into /admin/export, or run the site's\n"
-            f"     npm run import:library\n"
-        )
+        if args.tell_speakstone:
+            log(f"\nTelling Speakstone ({args.site})...")
+            if installed:
+                tell_speakstone(args.site, installed)
+            else:
+                log("  nothing new installed, nothing to send.")
+            log(
+                f"\nDone in {time.time() - started:.0f}s.\n"
+                f"\nSpeakstone has been told. Still nothing committed here:\n"
+                f"  git add -A && git commit   (review the diff first)\n"
+            )
+        else:
+            log(
+                f"\nDone in {time.time() - started:.0f}s.\n"
+                f"\nNothing has been committed and Speakstone has not been told. Next:\n"
+                f"  1. git add -A && git commit   (review the diff first)\n"
+                f"  2. tell Speakstone what is now voiced:\n"
+                f"     drag SoundLengths.lua into /admin/export, run the site's\n"
+                f"     npm run import:library, or pass --tell-speakstone next time\n"
+            )
         return 0
 
     finally:
