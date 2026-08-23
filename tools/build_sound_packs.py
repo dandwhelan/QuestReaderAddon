@@ -60,6 +60,22 @@ import sys
 from datetime import datetime
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_TOC = os.path.join(REPO_ROOT, "QuestReaderAddon.toc")
+
+
+def base_interface_lines():
+    """Read ## Interface / ## X-Interface straight from the base addon's own
+    .toc, so a pack never drifts from it after a game-version bump. This used
+    to be a literal string here -- fine until the base .toc changed and every
+    pack silently kept the old value."""
+    lines = []
+    with open(BASE_TOC, encoding="utf-8") as handle:
+        for line in handle:
+            if line.startswith("## Interface:") or line.startswith("## X-Interface:"):
+                lines.append(line.rstrip("\n"))
+    if not lines:
+        raise SystemExit(f"No ## Interface line found in {BASE_TOC}")
+    return "\n".join(lines) + "\n"
 SOUNDS_DIR = os.path.join(REPO_ROOT, "Sounds")
 SOUND_LENGTHS = os.path.join(REPO_ROOT, "SoundLengths.lua")
 WOWHEAD_CACHE = os.path.join(REPO_ROOT, "tools", ".cache", "wowhead")
@@ -319,8 +335,7 @@ def write_pack(out_dir, pack_key, entries, sounds_source, dry_run):
     with open(os.path.join(pack_dir, f"{addon_name}.toc"), "w",
               encoding="utf-8") as handle:
         handle.write(
-            "## Interface: 110207, 120000, 120001, 120100\n"
-            "## X-Interface: 110207, 120000, 120001, 120100\n"
+            base_interface_lines() +
             f"## Title: SpeakStone Narration - {title}\n"
             f"## Notes: {pack_key} quest audio for SpeakStone Narration. "
             f"Requires QuestReaderAddon.\n"
