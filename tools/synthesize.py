@@ -404,9 +404,9 @@ def main():
                         help="skip Ogg encoding and leave WAV output")
     parser.add_argument("--no-normalize", action="store_true",
                         help="skip loudness matching and silence trimming")
-    parser.add_argument("--speed", type=float, default=1.1,
+    parser.add_argument("--speed", type=float, default=1.2,
                         help="playback speed applied at encode time, e.g. "
-                             "1.1 for 10%% faster (default 1.1). Pitch is "
+                             "1.2 for 20%% faster (default 1.2). Pitch is "
                              "held constant; only pace changes")
     parser.add_argument("--narrator-speed", type=float, default=1.3,
                         help="speed for narrated passages -- those with no "

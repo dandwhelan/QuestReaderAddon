@@ -25,3 +25,6 @@ npcs.txt
 .DS_Store
 Thumbs.db
 *.bak
+
+# Watcher log from run_watch.cmd (phase 2 automation)
+tools/watch.log
