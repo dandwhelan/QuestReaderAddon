@@ -86,6 +86,23 @@ WOWHEAD_CACHE = os.path.join(REPO_ROOT, "tools", ".cache", "wowhead")
 # writing it -- this script does not wait for it and works fine without it.
 QUEST_EXPANSIONS_JSON = os.path.join(REPO_ROOT, "tools", "quest_expansions.json")
 
+# Records, per oversized pack, the quest/asset-ID boundaries this script has
+# already committed to for splitting that pack into sequential volumes
+# (Part1, Part2, ...). Once a boundary is written here it is never moved --
+# see split_oversized() below for why: reshuffling a boundary after a pack
+# has been published would silently break every existing install of that
+# volume (its .toc/repo name stays the same, but the clips inside would no
+# longer match what players think they installed). This file is new output
+# owned by this script, not one of the protected data files -- it is safe to
+# create/update it.
+DEFAULT_SPLIT_STATE = os.path.join(REPO_ROOT, "tools", "pack_split_state.json")
+
+# CurseForge's hard per-file cap. Leave real headroom under it so ordinary
+# growth of the *last, still-open* volume of a pack doesn't immediately
+# require yet another split next run -- see split_oversized().
+DEFAULT_MAX_PACK_MB = 500
+SPLIT_TARGET_FRACTION = 0.90  # fill a sealed volume to ~90% of the cap
+
 # Mirrors build_soundlengths.py's AUDIO_NAME: group(1) is the ID/slug part,
 # group(2) is the passage. Only "description"/"progress"/"completion" carry
 # a leading questID that can be looked up against wowhead; gossip/page
@@ -246,16 +263,205 @@ def plan_packs(sound_lengths, quest_expansion):
     return packs
 
 
+PART_SUFFIX = re.compile(r"^(.*)(_Part\d+)$")
+
+
 def pack_addon_name(pack_key):
-    if pack_key in (SHARED_PACK, UNSORTED_PACK):
-        suffix = pack_key
+    part_match = PART_SUFFIX.match(pack_key)
+    base_key = part_match.group(1) if part_match else pack_key
+    part_tag = part_match.group(2) if part_match else ""
+    if base_key in (SHARED_PACK, UNSORTED_PACK):
+        suffix = base_key + part_tag
     else:
-        suffix = slugify(pack_key)
+        suffix = slugify(base_key) + part_tag
     return f"QuestReaderAddon_Pack_{suffix}", suffix
+
+
+def numeric_sort_key(filename):
+    """Order clips by the numeric ID embedded in the filename.
+
+    AUDIO_NAME's group(1) is "12345" for quest passages, or something like
+    "npc12345"/"item6789" for gossip/page audio. Pulling the trailing digits
+    out of that gives a stable, deterministic ordering to bin-pack by --
+    it is NOT a proxy for quest order in the game, release date, or zone. It
+    is just a fixed, reproducible sequence so that splitting is mechanical
+    and re-running the script on unchanged input always yields the same
+    boundaries.
+    """
+    match = AUDIO_NAME.match(filename)
+    base = match.group(1) if match else filename
+    digits = re.search(r"(\d+)$", base)
+    return (int(digits.group(1)) if digits else -1, filename)
+
+
+def load_split_state(path):
+    """{pack_key: [frozen boundary, frozen boundary, ...]} (ascending ints).
+
+    A missing/unreadable/malformed file is treated as "no packs have been
+    split yet" -- this is new bookkeeping this script owns, so it degrades
+    the same way quest_expansions.json does: absence just means "nothing
+    known yet," never a crash.
+    """
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            raw = json.load(handle)
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"warning: could not read split state {path} ({exc}); "
+              f"treating as empty (a fresh split will be computed and "
+              f"will overwrite this file)", file=sys.stderr)
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    return {k: sorted(int(b) for b in v) for k, v in raw.items()
+             if isinstance(v, list)}
+
+
+def save_split_state(path, state):
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(state, handle, indent=2, sort_keys=True)
+
+
+def size_bytes_for(entries, sounds_source):
+    """{filename: size in bytes}, 0 for any file missing on disk."""
+    sizes = {}
+    for filename in entries:
+        src = os.path.join(sounds_source, filename)
+        sizes[filename] = os.path.getsize(src) if os.path.isfile(src) else 0
+    return sizes
+
+
+def split_oversized(pack_key, entries, sizes, max_bytes, state):
+    """Split one oversized pack into sequential, ID-ordered volumes.
+
+    Design, and why this beats the alternatives considered:
+
+    - Zone/continent split was ruled out: nothing cached in this repo (see
+      the module docstring and docs/sound_packs.md section 3) carries a
+      quest's zone or continent, only its expansion (and that itself is
+      only ~10% directly mapped, filled out by quest_expansions.json).
+      Designing around zone data that doesn't exist would just move the
+      "Unsorted" problem down a level.
+    - Level bracket has the same problem: no level field exists anywhere in
+      QuestV2.csv or the harvested JSON. Ruled out for the same reason.
+    - A naive "just split what's over budget into two even halves each
+      run" was rejected because re-running it after the library grows would
+      recompute different boundaries and silently reshuffle which clips are
+      in "Part1" vs "Part2" -- an existing install of Part1 would suddenly
+      be missing clips it used to have (they moved to a renamed/renumbered
+      Part2) with no error, just silence. That is worse than the 500MB
+      problem it's meant to solve.
+
+    What this does instead: sort this pack's entries by numeric_sort_key
+    (a fixed, reproducible order -- not zone or level, just deterministic),
+    then greedily fill "PartN" volumes to ~90% of max_bytes. The boundary
+    (highest numeric key) at which a volume was sealed is written to
+    pack_split_state.json and never revisited: on every future run, any
+    entry whose key falls at or under a frozen boundary goes to that same
+    already-published Part, full stop, even if that makes the frozen part
+    quietly exceed the cap by a few clips (a warning is printed; it is not
+    silently ignored). Only the newest, still-open Part absorbs new growth,
+    and if IT crosses the cap, a new boundary is sealed and a new Part is
+    opened. Existing installs of Part1..Part(n-1) are therefore never
+    invalidated by later growth -- only a new PartN ever appears.
+
+    Trade-off, stated plainly: the very first time a given pack crosses the
+    cap, its previously-unsplit name changes (e.g.
+    QuestReaderAddon_Pack_Classic becomes ..._Part1,
+    ..._Part2, ...). That is a one-time, unavoidable break of that pack's
+    existing repo name/identity -- there is no way to keep serving the same
+    growing pack from the same single file once it must physically split.
+    Once split, though, later growth is additive, not disruptive.
+
+    The ordering is quest-ID order, not any meaningful player-facing axis
+    (not story order, not zone, not level) -- a player picking "Part 2"
+    has no idea what's actually inside beyond "some more Classic quests".
+    This is the honest cost of not having zone/level data; see the
+    accompanying design writeup for what to switch to (zone-based) once/if
+    that data becomes available.
+    """
+    total = sum(sizes.get(f, 0) for f in entries)
+    frozen = list(state.get(pack_key, []))
+    if total <= max_bytes and not frozen:
+        return {pack_key: entries}, frozen
+
+    ordered = sorted(entries, key=numeric_sort_key)
+    target = int(max_bytes * SPLIT_TARGET_FRACTION)
+
+    parts = []          # list of {filename: seconds}
+    current = {}
+    current_bytes = 0
+
+    # Walk the sorted list once. Anything at/under a frozen boundary goes
+    # into that same fixed part, regardless of size. Once past all frozen
+    # boundaries, greedily fill new parts up to `target`, sealing (freezing)
+    # a new boundary each time a part fills up -- except the very last part,
+    # which stays open (unfrozen) so ordinary future growth just adds to it
+    # in place rather than immediately forcing yet another split.
+    boundary_ptr = 0
+    for filename in ordered:
+        key = numeric_sort_key(filename)[0]
+        if boundary_ptr < len(frozen) and key <= frozen[boundary_ptr]:
+            # Belongs to an already-sealed part. Walk forward through
+            # `parts` lazily -- parts list mirrors frozen boundaries 1:1.
+            while len(parts) <= boundary_ptr:
+                parts.append({})
+            parts[boundary_ptr][filename] = entries[filename]
+            continue
+        # Past the current frozen boundary (or no boundaries left).
+        while boundary_ptr < len(frozen) and key > frozen[boundary_ptr]:
+            boundary_ptr += 1
+        if boundary_ptr < len(frozen) and key <= frozen[boundary_ptr]:
+            while len(parts) <= boundary_ptr:
+                parts.append({})
+            parts[boundary_ptr][filename] = entries[filename]
+            continue
+
+        # Open territory: greedily accumulate into the current open part.
+        size = sizes.get(filename, 0)
+        if current and current_bytes + size > target:
+            # Seal this part: freeze its boundary and start a new open one.
+            frozen.append(key_before)
+            parts.append(current)
+            current = {}
+            current_bytes = 0
+        current[filename] = entries[filename]
+        current_bytes += size
+        key_before = key
+
+    if current:
+        parts.append(current)
+    elif not parts:
+        parts.append({})
+
+    result = {}
+    for i, part_entries in enumerate(parts, start=1):
+        result[f"{pack_key}_Part{i}"] = part_entries
+
+    # Sanity: every frozen boundary must correspond to a real, non-final
+    # part. Warn (don't crash) if a frozen part is over cap after all --
+    # that can happen legitimately if a single clip near a boundary is
+    # unusually large, or if max-pack-mb was lowered after boundaries were
+    # already committed.
+    for i, part_entries in enumerate(parts[:-1], start=1):
+        part_bytes = sum(sizes.get(f, 0) for f in part_entries)
+        if part_bytes > max_bytes:
+            print(f"warning: {pack_key}_Part{i} is a frozen/sealed volume "
+                  f"but now measures {part_bytes / 1024 / 1024:.1f} MB, "
+                  f"over the {max_bytes / 1024 / 1024:.0f} MB cap. Its "
+                  f"boundary is intentionally not being moved (that would "
+                  f"break existing installs) -- this needs a human look.",
+                  file=sys.stderr)
+
+    return result, frozen
 
 
 def write_pack(out_dir, pack_key, entries, sounds_source, dry_run):
     addon_name, suffix = pack_addon_name(pack_key)
+    part_match = PART_SUFFIX.match(pack_key)
+    base_key = part_match.group(1) if part_match else pack_key
+    part_label = part_match.group(2).replace("_Part", " Part ") if part_match else ""
     pack_dir = os.path.join(out_dir, addon_name)
     total_bytes = 0
     total_seconds = sum(entries.values())
@@ -314,7 +520,7 @@ def write_pack(out_dir, pack_key, entries, sounds_source, dry_run):
             f"        {{ name = addonName, index = {var_name} }})\n"
             "end\n")
 
-    if pack_key == UNSORTED_PACK:
+    if base_key == UNSORTED_PACK:
         with open(os.path.join(pack_dir, "README_UNSORTED.txt"), "w",
                   encoding="utf-8") as handle:
             handle.write(
@@ -330,17 +536,25 @@ def write_pack(out_dir, pack_key, entries, sounds_source, dry_run):
                 "    quest pages (fallback source).\n"
                 "Re-run tools/build_sound_packs.py after either improves.\n")
 
-    title = pack_key if pack_key in (SHARED_PACK, UNSORTED_PACK) \
-        else f"{pack_key} Voices"
+    title = base_key if base_key in (SHARED_PACK, UNSORTED_PACK) \
+        else f"{base_key} Voices"
+    title = f"{title}{part_label}"
     with open(os.path.join(pack_dir, f"{addon_name}.toc"), "w",
               encoding="utf-8") as handle:
         handle.write(
             base_interface_lines() +
             f"## Title: SpeakStone Narration - {title}\n"
-            f"## Notes: {pack_key} quest audio for SpeakStone Narration. "
-            f"Requires QuestReaderAddon.\n"
+            f"## Notes: {base_key}{part_label} quest audio for SpeakStone "
+            f"Narration. Requires QuestReaderAddon.\n"
             "## Author: clhammer weirdautomation@gmail.com, Paratus\n\n"
-            "## OptionalDeps: QuestReaderAddon\n\n"
+            # Required, not Optional: a pack is audio plus a two-line
+            # Register.lua that calls a global the base addon defines. On its
+            # own it does nothing at all, so the game should refuse to load it
+            # without QuestReaderAddon rather than sit there inert. HandyNotes,
+            # which this whole base-plus-modules layout follows, does the same
+            # (RequiredDeps: HandyNotes) and reserves OptionalDeps for genuinely
+            # optional libraries like Ace3.
+            "## RequiredDeps: QuestReaderAddon\n\n"
             "SoundLengths.lua\n"
             "Register.lua\n")
 
@@ -369,6 +583,17 @@ def main():
                              "packs/, alongside this repo)")
     parser.add_argument("--dry-run", action="store_true",
                         help="print the pack plan without writing anything")
+    parser.add_argument("--max-pack-mb", type=float, default=DEFAULT_MAX_PACK_MB,
+                        help=f"split a pack into sequential Part1/Part2/... "
+                             f"volumes if it would exceed this size in MB "
+                             f"(default: {DEFAULT_MAX_PACK_MB}, CurseForge's "
+                             f"per-file cap)")
+    parser.add_argument("--split-state", default=DEFAULT_SPLIT_STATE,
+                        help="JSON file recording frozen split boundaries "
+                             "for packs that have already been split, so "
+                             "re-running never reshuffles a previously "
+                             "published volume (default: "
+                             "tools/pack_split_state.json)")
     args = parser.parse_args()
 
     if not os.path.isfile(args.index):
@@ -392,13 +617,35 @@ def main():
 
     packs = plan_packs(sound_lengths, quest_expansion)
 
+    max_bytes = int(args.max_pack_mb * 1024 * 1024)
+    split_state = load_split_state(args.split_state)
+    state_changed = False
+    final_packs = {}
+    for pack_key, entries in packs.items():
+        sizes = size_bytes_for(entries, args.sounds)
+        sub_packs, frozen = split_oversized(pack_key, entries, sizes,
+                                            max_bytes, split_state)
+        if len(sub_packs) > 1 or pack_key in split_state:
+            if split_state.get(pack_key) != frozen:
+                state_changed = True
+            split_state[pack_key] = frozen
+        final_packs.update(sub_packs)
+        if len(sub_packs) > 1:
+            print(f"  {pack_key} exceeds {args.max_pack_mb:.0f} MB -> split "
+                  f"into {len(sub_packs)} volume(s): "
+                  f"{', '.join(sub_packs)}", file=sys.stderr)
+
     if not args.dry_run:
         os.makedirs(args.out, exist_ok=True)
+        if state_changed:
+            save_split_state(args.split_state, split_state)
+            print(f"Updated split boundaries in {args.split_state}.",
+                  file=sys.stderr)
 
-    print(f"\nBuilding {len(packs)} pack(s) into {args.out}"
+    print(f"\nBuilding {len(final_packs)} pack(s) into {args.out}"
           f"{' (dry run)' if args.dry_run else ''}:")
-    for pack_key in sorted(packs, key=lambda k: (k in (SHARED_PACK, UNSORTED_PACK), k)):
-        write_pack(args.out, pack_key, packs[pack_key], args.sounds, args.dry_run)
+    for pack_key in sorted(final_packs, key=lambda k: (k in (SHARED_PACK, UNSORTED_PACK), k)):
+        write_pack(args.out, pack_key, final_packs[pack_key], args.sounds, args.dry_run)
 
     # Loud, explicit call-out of how much is unsorted -- this must never be
     # a silently-shipped mystery pack. Reported by clip count (what a player
@@ -420,9 +667,11 @@ def main():
         "generated": datetime.now().isoformat(timespec="seconds"),
         "source_index": os.path.abspath(args.index),
         "quest_expansions_json_used": os.path.isfile(args.quest_expansions),
-        "packs": {pack_addon_name(k)[0]: len(v) for k, v in packs.items()},
+        "packs": {pack_addon_name(k)[0]: len(v) for k, v in final_packs.items()},
         "unsorted_clip_count": unsorted_clips,
         "unsorted_share_of_total": round(unsorted_share, 4) if total_clips else 0,
+        "max_pack_mb": args.max_pack_mb,
+        "split_state_file": os.path.abspath(args.split_state),
     }
     if not args.dry_run:
         with open(os.path.join(args.out, "manifest.json"), "w",
