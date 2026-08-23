@@ -158,6 +158,14 @@ def load_lexicon(path):
     folded = {k.lower(): v for k, v in entries.items()}
     # The trailing guard blocks only word characters, not apostrophes, so a
     # possessive still matches: "Zul'Aman's" respells as "Zool-Ah-Mahn's".
+    #
+    # sorted(..., key=len, reverse=True) is load-bearing, not tidiness. Some
+    # keys are prefixes of others -- "Amani" of "Amani'Zar", "K'aresh" of
+    # "K'areshi" -- and because the trailing guard deliberately allows an
+    # apostrophe, the short key *would* match inside the long one if the
+    # alternation reached it first. Longest-first is what stops "Amani'Zar"
+    # becoming "Ah-mah-nee'Zar". Replacing this with insertion or alphabetical
+    # order breaks those names silently.
     pattern = re.compile(
         r"(?<![\w'])(" + "|".join(re.escape(k) for k in
                                   sorted(entries, key=len, reverse=True))
