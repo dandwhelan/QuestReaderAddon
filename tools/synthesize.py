@@ -124,7 +124,11 @@ GENDER_TOKEN = re.compile(r"\$[gG]\s*([^:;]*):([^;]*);?")
 # winks.>" -- which the game shows the player but nobody speaks. Left in, the
 # NPC narrates their own body language in their own voice. Dropped after the
 # placeholders above are resolved, so only genuine directions are left to match.
-STAGE_DIRECTION = re.compile(r"<[^<>]{2,120}?>")
+#
+# No length cap. One was tried at 120 characters and let the long ones through:
+# an item description of 502 characters is still one bracketed span, and it
+# reached the engine with its angle brackets attached.
+STAGE_DIRECTION = re.compile(r"<[^<>]+>", re.DOTALL)
 
 # Anything token-shaped still standing after rendering is a class of artifact
 # nobody has taught this function about yet. That has happened twice -- "<name>"
@@ -146,7 +150,19 @@ def render_tokens(text, player_term="champion", class_term="hero",
     text = PLAYER_RACE_TOKEN.sub(race_term, text)
     text = GENDER_TOKEN.sub(lambda m: m.group(1).strip(), text)
     if drop_stage_directions:
-        text = STAGE_DIRECTION.sub(" ", text)
+        stripped = STAGE_DIRECTION.sub(" ", text)
+        # A direction alongside dialogue is worth dropping. A passage that is
+        # *entirely* bracketed is a different thing wearing the same syntax --
+        # item and object text, where the description is the whole content:
+        # "<The idol appears to be a figure of Ohn'ahra...>". Dropping that
+        # leaves nothing to say, and F5 fails an empty string with "tuple index
+        # out of range" -- which is exactly how all seven failures in the first
+        # regeneration run arose. Where removal would empty the passage, keep
+        # the words and take only the brackets.
+        if stripped.strip():
+            text = stripped
+        else:
+            text = STAGE_DIRECTION.sub(lambda m: m.group(0)[1:-1], text)
     # Removing a direction can leave a doubled space or a space before a stop.
     text = re.sub(r"[ \t]{2,}", " ", text)
     text = re.sub(r" +([,.;:!?])", r"\1", text)
