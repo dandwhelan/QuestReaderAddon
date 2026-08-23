@@ -1,372 +1,1136 @@
 {
-  "humanoid_neutral": {
-    "race": "",
-    "sex": "",
-    "members": [
-      {
-        "npcName": "Kul'amara the Fierce",
-        "npcID": "241303",
-        "clips": 20,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Loa Speaker Kinduru",
-        "npcID": "253804",
-        "clips": 25,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Orweyna",
-        "npcID": "215113",
-        "clips": 357,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Archmage Khadgar",
-        "npcID": "72874",
-        "clips": 560,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Tak'lejo",
-        "npcID": "244562",
-        "clips": 16,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Loa Speaker Brek",
-        "npcID": "253821",
-        "clips": 26,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Zul'jan",
-        "npcID": "236588",
-        "clips": 140,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Strongblood Jak'mo",
-        "npcID": "253557",
-        "clips": 7,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Dak'zor",
-        "npcID": "262015",
-        "clips": 26,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Zul'jarra",
-        "npcID": "236659",
-        "clips": 311,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Valeera Sanguinar",
-        "npcID": "87404",
-        "clips": 229,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Telemancer Astrandis",
-        "npcID": "242399",
-        "clips": 0,
-        "needsFallback": true
-      }
-    ],
-    "donor": {
-      "npcName": "Archmage Khadgar",
-      "folder": "archmage_khadgar",
-      "source": "named NPC",
-      "clips": 560,
-      "referencePaths": [
-        "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_01.ogg",
-        "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_02.ogg",
-        "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_03.ogg",
-        "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_04.ogg",
-        "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_05.ogg",
-        "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_06.ogg",
-        "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_07.ogg",
-        "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_08.ogg"
-      ]
-    }
-  },
-  "blood-elf_male": {
-    "race": "Blood Elf",
-    "sex": "male",
-    "members": [
-      {
-        "npcName": "Archmage Aethas Sunreaver",
-        "npcID": "30116",
-        "clips": 0,
-        "needsFallback": true
-      },
-      {
-        "npcName": "Aethas Sunreaver",
-        "npcID": "117497",
-        "clips": 120,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Belath Dawnblade",
-        "npcID": "95244",
-        "clips": 83,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Halduron Brightwing",
-        "npcID": "16801",
-        "clips": 115,
-        "needsFallback": false
-      }
-    ],
-    "donor": {
-      "npcName": "generic blood elf citizen a",
-      "folder": "generic_blood_elf_citizen_a",
-      "source": "generic pool",
-      "clips": 46,
-      "referencePaths": [
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_01_f.ogg",
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_02_m.ogg",
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_02_f.ogg",
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_03_m.ogg",
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_03_f.ogg",
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_04_m.ogg",
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_04_f.ogg",
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_05_m.ogg"
-      ]
-    }
-  },
-  "void-elf_female": {
-    "race": "Void Elf",
-    "sex": "female",
-    "members": [
-      {
-        "npcName": "Lady Darkglen",
-        "npcID": "239616",
-        "clips": 10,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Riftblade Maella",
-        "npcID": "239618",
-        "clips": 103,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Deminos Darktrance",
-        "npcID": "245976",
-        "clips": 0,
-        "needsFallback": true
-      }
-    ],
-    "donor": {
-      "npcName": "generic void elf",
-      "folder": "generic_void_elf",
-      "source": "generic pool",
-      "clips": 16,
-      "referencePaths": [
-        "sound/creature/generic_void_elf/vo_112_generic_void_elf_01_m.ogg",
-        "sound/creature/generic_void_elf/vo_112_generic_void_elf_01_f.ogg",
-        "sound/creature/generic_void_elf/vo_120_generic_void_elf_01_m.ogg",
-        "sound/creature/generic_void_elf/vo_120_generic_void_elf_01_f.ogg",
-        "sound/creature/generic_void_elf/vo_120_generic_void_elf_02_m.ogg",
-        "sound/creature/generic_void_elf/vo_120_generic_void_elf_02_f.ogg",
-        "sound/creature/generic_void_elf/vo_120_generic_void_elf_03_m.ogg",
-        "sound/creature/generic_void_elf/vo_120_generic_void_elf_03_f.ogg"
-      ]
-    }
-  },
-  "undead_neutral": {
-    "race": "",
-    "sex": "",
-    "members": [
-      {
-        "npcName": "Enchanted Amani Mask",
-        "npcID": "261854",
-        "clips": 7,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Befuddled Amani Mask",
-        "npcID": "253833",
-        "clips": 8,
-        "needsFallback": false
-      }
-    ],
-    "donor": null
-  },
-  "void-elf_male": {
-    "race": "Void Elf",
-    "sex": "male",
-    "members": [
-      {
-        "npcName": "Magister Umbric",
-        "npcID": "137228",
-        "clips": 311,
-        "needsFallback": false
-      }
-    ],
-    "donor": {
-      "npcName": "generic void elf",
-      "folder": "generic_void_elf",
-      "source": "generic pool",
-      "clips": 16,
-      "referencePaths": [
-        "sound/creature/generic_void_elf/vo_112_generic_void_elf_01_m.ogg",
-        "sound/creature/generic_void_elf/vo_112_generic_void_elf_01_f.ogg",
-        "sound/creature/generic_void_elf/vo_120_generic_void_elf_01_m.ogg",
-        "sound/creature/generic_void_elf/vo_120_generic_void_elf_01_f.ogg",
-        "sound/creature/generic_void_elf/vo_120_generic_void_elf_02_m.ogg",
-        "sound/creature/generic_void_elf/vo_120_generic_void_elf_02_f.ogg",
-        "sound/creature/generic_void_elf/vo_120_generic_void_elf_03_m.ogg",
-        "sound/creature/generic_void_elf/vo_120_generic_void_elf_03_f.ogg"
-      ]
-    }
-  },
-  "blood-elf_female": {
-    "race": "Blood Elf",
-    "sex": "female",
-    "members": [
-      {
-        "npcName": "Soridormi",
-        "npcID": "19935",
-        "clips": 121,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Lady Liadrin",
-        "npcID": "75121",
-        "clips": 352,
-        "needsFallback": false
-      },
-      {
-        "npcName": "Naleidea Rivergleam",
-        "npcID": "184870",
-        "clips": 78,
-        "needsFallback": false
-      }
-    ],
-    "donor": {
-      "npcName": "generic blood elf citizen a",
-      "folder": "generic_blood_elf_citizen_a",
-      "source": "generic pool",
-      "clips": 46,
-      "referencePaths": [
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_01_f.ogg",
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_02_m.ogg",
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_02_f.ogg",
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_03_m.ogg",
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_03_f.ogg",
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_04_m.ogg",
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_04_f.ogg",
-        "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_05_m.ogg"
-      ]
-    }
-  },
-  "undead_male": {
-    "race": "Undead",
-    "sex": "male",
-    "members": [
-      {
-        "npcName": "Nelthius Shadestone",
-        "npcID": "254616",
-        "clips": 0,
-        "needsFallback": true
-      }
-    ],
-    "donor": null
-  },
-  "aberration_neutral": {
-    "race": "",
-    "sex": "",
-    "members": [
-      {
-        "npcName": "Decimus",
-        "npcID": "235392",
-        "clips": 104,
-        "needsFallback": false
-      }
-    ],
-    "donor": {
-      "npcName": "Decimus",
-      "folder": "decimus",
-      "source": "named NPC",
-      "clips": 104,
-      "referencePaths": [
-        "sound/creature/decimus/vo_120_decimus_01_m.ogg",
-        "sound/creature/decimus/vo_120_decimus_02_m.ogg",
-        "sound/creature/decimus/vo_120_decimus_03_m.ogg",
-        "sound/creature/decimus/vo_120_decimus_04_m.ogg",
-        "sound/creature/decimus/vo_120_decimus_05_m.ogg",
-        "sound/creature/decimus/vo_120_decimus_06_m.ogg",
-        "sound/creature/decimus/vo_120_decimus_07_m.ogg",
-        "sound/creature/decimus/vo_120_decimus_08_m.ogg"
-      ]
-    }
-  },
-  "dragonkin_neutral": {
-    "race": "",
-    "sex": "",
-    "members": [
-      {
-        "npcName": "Eternus",
-        "npcID": "186419",
-        "clips": 97,
-        "needsFallback": false
-      }
-    ],
-    "donor": {
-      "npcName": "Eternus",
-      "folder": "eternus",
-      "source": "named NPC",
-      "clips": 97,
-      "referencePaths": [
-        "sound/creature/eternus/vo_100_eternus_01_f.ogg",
-        "sound/creature/eternus/vo_100_eternus_02_f.ogg",
-        "sound/creature/eternus/vo_100_eternus_03_f.ogg",
-        "sound/creature/eternus/vo_100_eternus_04_f.ogg",
-        "sound/creature/eternus/vo_100_eternus_05_f.ogg",
-        "sound/creature/eternus/vo_100_eternus_06_f.ogg",
-        "sound/creature/eternus/vo_100_eternus_07_f.ogg",
-        "sound/creature/eternus/vo_100_eternus_08_f.ogg"
-      ]
-    }
-  },
-  "human_male": {
-    "race": "Human",
-    "sex": "male",
-    "members": [
-      {
-        "npcName": "Reno Jackson",
-        "npcID": "255103",
-        "clips": 0,
-        "needsFallback": true
-      },
-      {
-        "npcName": "Lord Grayson Shadowbreaker",
-        "npcID": "96555",
-        "clips": 52,
-        "needsFallback": false
-      }
-    ],
-    "donor": {
-      "npcName": "generic stormwind human",
-      "folder": "generic_stormwind_human",
-      "source": "generic pool",
-      "clips": 19,
-      "referencePaths": [
-        "sound/creature/generic_stormwind_human/vo_835_generic_stormwind_human_01_m.ogg",
-        "sound/creature/generic_stormwind_human/vo_835_generic_stormwind_human_02_m.ogg",
-        "sound/creature/generic_stormwind_human/vo_835_generic_stormwind_human_03_m.ogg",
-        "sound/creature/generic_stormwind_human/vo_835_generic_stormwind_human_04_m.ogg",
-        "sound/creature/generic_stormwind_human/vo_901_generic_stormwind_human_01_m.ogg",
-        "sound/creature/generic_stormwind_human/vo_901_generic_stormwind_human_02_m.ogg",
-        "sound/creature/generic_stormwind_human/vo_901_generic_stormwind_human_03_m.ogg",
-        "sound/creature/generic_stormwind_human/vo_901_generic_stormwind_human_01_f.ogg"
-      ]
-    }
+ "humanoid_neutral": {
+  "race": "",
+  "sex": "",
+  "members": [
+   {
+    "npcName": "Kul'amara the Fierce",
+    "npcID": "241303",
+    "clips": 20,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Loa Speaker Kinduru",
+    "npcID": "253804",
+    "clips": 25,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Orweyna",
+    "npcID": "215113",
+    "clips": 357,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Archmage Khadgar",
+    "npcID": "72874",
+    "clips": 560,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Tak'lejo",
+    "npcID": "244562",
+    "clips": 16,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Loa Speaker Brek",
+    "npcID": "253821",
+    "clips": 26,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Zul'jan",
+    "npcID": "236588",
+    "clips": 140,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Strongblood Jak'mo",
+    "npcID": "253557",
+    "clips": 7,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Dak'zor",
+    "npcID": "262015",
+    "clips": 26,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Zul'jarra",
+    "npcID": "236659",
+    "clips": 311,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Valeera Sanguinar",
+    "npcID": "87404",
+    "clips": 229,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Telemancer Astrandis",
+    "npcID": "242399",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "Archmage Khadgar",
+   "folder": "archmage_khadgar",
+   "source": "named NPC",
+   "clips": 560,
+   "referencePaths": [
+    "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_01.ogg",
+    "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_02.ogg",
+    "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_03.ogg",
+    "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_04.ogg",
+    "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_05.ogg",
+    "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_06.ogg",
+    "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_07.ogg",
+    "sound/creature/archmage_khadgar/vo_70_archmage_khadgar_08.ogg"
+   ]
   }
+ },
+ "blood-elf_male": {
+  "race": "Blood Elf",
+  "sex": "male",
+  "members": [
+   {
+    "npcName": "Archmage Aethas Sunreaver",
+    "npcID": "30116",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Aethas Sunreaver",
+    "npcID": "117497",
+    "clips": 120,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Belath Dawnblade",
+    "npcID": "95244",
+    "clips": 83,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Halduron Brightwing",
+    "npcID": "16801",
+    "clips": 115,
+    "needsFallback": false
+   }
+  ],
+  "donor": {
+   "npcName": "generic blood elf citizen a",
+   "folder": "generic_blood_elf_citizen_a",
+   "source": "generic pool",
+   "clips": 46,
+   "referencePaths": [
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_01_f.ogg",
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_02_m.ogg",
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_02_f.ogg",
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_03_m.ogg",
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_03_f.ogg",
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_04_m.ogg",
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_04_f.ogg",
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_05_m.ogg"
+   ]
+  }
+ },
+ "void-elf_female": {
+  "race": "Void Elf",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Lady Darkglen",
+    "npcID": "239616",
+    "clips": 10,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Riftblade Maella",
+    "npcID": "239618",
+    "clips": 103,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Deminos Darktrance",
+    "npcID": "245976",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "generic void elf",
+   "folder": "generic_void_elf",
+   "source": "generic pool",
+   "clips": 16,
+   "referencePaths": [
+    "sound/creature/generic_void_elf/vo_112_generic_void_elf_01_m.ogg",
+    "sound/creature/generic_void_elf/vo_112_generic_void_elf_01_f.ogg",
+    "sound/creature/generic_void_elf/vo_120_generic_void_elf_01_m.ogg",
+    "sound/creature/generic_void_elf/vo_120_generic_void_elf_01_f.ogg",
+    "sound/creature/generic_void_elf/vo_120_generic_void_elf_02_m.ogg",
+    "sound/creature/generic_void_elf/vo_120_generic_void_elf_02_f.ogg",
+    "sound/creature/generic_void_elf/vo_120_generic_void_elf_03_m.ogg",
+    "sound/creature/generic_void_elf/vo_120_generic_void_elf_03_f.ogg"
+   ]
+  }
+ },
+ "undead_neutral": {
+  "race": "",
+  "sex": "",
+  "members": [
+   {
+    "npcName": "Enchanted Amani Mask",
+    "npcID": "261854",
+    "clips": 7,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Befuddled Amani Mask",
+    "npcID": "253833",
+    "clips": 8,
+    "needsFallback": false
+   }
+  ],
+  "donor": null
+ },
+ "void-elf_male": {
+  "race": "Void Elf",
+  "sex": "male",
+  "members": [
+   {
+    "npcName": "Magister Umbric",
+    "npcID": "137228",
+    "clips": 311,
+    "needsFallback": false
+   }
+  ],
+  "donor": {
+   "npcName": "generic void elf",
+   "folder": "generic_void_elf",
+   "source": "generic pool",
+   "clips": 16,
+   "referencePaths": [
+    "sound/creature/generic_void_elf/vo_112_generic_void_elf_01_m.ogg",
+    "sound/creature/generic_void_elf/vo_112_generic_void_elf_01_f.ogg",
+    "sound/creature/generic_void_elf/vo_120_generic_void_elf_01_m.ogg",
+    "sound/creature/generic_void_elf/vo_120_generic_void_elf_01_f.ogg",
+    "sound/creature/generic_void_elf/vo_120_generic_void_elf_02_m.ogg",
+    "sound/creature/generic_void_elf/vo_120_generic_void_elf_02_f.ogg",
+    "sound/creature/generic_void_elf/vo_120_generic_void_elf_03_m.ogg",
+    "sound/creature/generic_void_elf/vo_120_generic_void_elf_03_f.ogg"
+   ]
+  }
+ },
+ "blood-elf_female": {
+  "race": "Blood Elf",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Soridormi",
+    "npcID": "19935",
+    "clips": 121,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Lady Liadrin",
+    "npcID": "75121",
+    "clips": 352,
+    "needsFallback": false
+   },
+   {
+    "npcName": "Naleidea Rivergleam",
+    "npcID": "184870",
+    "clips": 78,
+    "needsFallback": false
+   }
+  ],
+  "donor": {
+   "npcName": "generic blood elf citizen a",
+   "folder": "generic_blood_elf_citizen_a",
+   "source": "generic pool",
+   "clips": 46,
+   "referencePaths": [
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_01_f.ogg",
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_02_m.ogg",
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_02_f.ogg",
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_03_m.ogg",
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_03_f.ogg",
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_04_m.ogg",
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_04_f.ogg",
+    "sound/creature/generic_blood_elf_citizen_a/vo_120_generic_blood_elf_citizen_a_05_m.ogg"
+   ]
+  }
+ },
+ "undead_male": {
+  "race": "Undead",
+  "sex": "male",
+  "members": [
+   {
+    "npcName": "Nelthius Shadestone",
+    "npcID": "254616",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": null
+ },
+ "aberration_neutral": {
+  "race": "",
+  "sex": "",
+  "members": [
+   {
+    "npcName": "Decimus",
+    "npcID": "235392",
+    "clips": 104,
+    "needsFallback": false
+   }
+  ],
+  "donor": {
+   "npcName": "Decimus",
+   "folder": "decimus",
+   "source": "named NPC",
+   "clips": 104,
+   "referencePaths": [
+    "sound/creature/decimus/vo_120_decimus_01_m.ogg",
+    "sound/creature/decimus/vo_120_decimus_02_m.ogg",
+    "sound/creature/decimus/vo_120_decimus_03_m.ogg",
+    "sound/creature/decimus/vo_120_decimus_04_m.ogg",
+    "sound/creature/decimus/vo_120_decimus_05_m.ogg",
+    "sound/creature/decimus/vo_120_decimus_06_m.ogg",
+    "sound/creature/decimus/vo_120_decimus_07_m.ogg",
+    "sound/creature/decimus/vo_120_decimus_08_m.ogg"
+   ]
+  }
+ },
+ "dragonkin_neutral": {
+  "race": "",
+  "sex": "",
+  "members": [
+   {
+    "npcName": "Eternus",
+    "npcID": "186419",
+    "clips": 97,
+    "needsFallback": false
+   }
+  ],
+  "donor": {
+   "npcName": "Eternus",
+   "folder": "eternus",
+   "source": "named NPC",
+   "clips": 97,
+   "referencePaths": [
+    "sound/creature/eternus/vo_100_eternus_01_f.ogg",
+    "sound/creature/eternus/vo_100_eternus_02_f.ogg",
+    "sound/creature/eternus/vo_100_eternus_03_f.ogg",
+    "sound/creature/eternus/vo_100_eternus_04_f.ogg",
+    "sound/creature/eternus/vo_100_eternus_05_f.ogg",
+    "sound/creature/eternus/vo_100_eternus_06_f.ogg",
+    "sound/creature/eternus/vo_100_eternus_07_f.ogg",
+    "sound/creature/eternus/vo_100_eternus_08_f.ogg"
+   ]
+  }
+ },
+ "human_male": {
+  "race": "Human",
+  "sex": "male",
+  "members": [
+   {
+    "npcName": "Reno Jackson",
+    "npcID": "255103",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Lord Grayson Shadowbreaker",
+    "npcID": "96555",
+    "clips": 52,
+    "needsFallback": false
+   }
+  ],
+  "donor": {
+   "npcName": "generic stormwind human",
+   "folder": "generic_stormwind_human",
+   "source": "generic pool",
+   "clips": 19,
+   "referencePaths": [
+    "sound/creature/generic_stormwind_human/vo_835_generic_stormwind_human_01_m.ogg",
+    "sound/creature/generic_stormwind_human/vo_835_generic_stormwind_human_02_m.ogg",
+    "sound/creature/generic_stormwind_human/vo_835_generic_stormwind_human_03_m.ogg",
+    "sound/creature/generic_stormwind_human/vo_835_generic_stormwind_human_04_m.ogg",
+    "sound/creature/generic_stormwind_human/vo_901_generic_stormwind_human_01_m.ogg",
+    "sound/creature/generic_stormwind_human/vo_901_generic_stormwind_human_02_m.ogg",
+    "sound/creature/generic_stormwind_human/vo_901_generic_stormwind_human_03_m.ogg",
+    "sound/creature/generic_stormwind_human/vo_901_generic_stormwind_human_01_f.ogg"
+   ]
+  }
+ },
+ "amani-troll_male": {
+  "race": "Amani Troll",
+  "sex": "male",
+  "members": [
+   {
+    "npcName": "Du'gal",
+    "npcID": "256510",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Kel'vujo",
+    "npcID": "253997",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Ja'bonu",
+    "npcID": "256874",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Ra'kamu",
+    "npcID": "257091",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Tekkan",
+    "npcID": "259298",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Aol'ggin",
+    "npcID": "259076",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "Loa Speaker Kinduru",
+   "folder": "loa_speaker_kinduru_amani_akilzon",
+   "source": "named NPC",
+   "clips": 45,
+   "referencePaths": [
+    "sound/creature/loa_speaker_kinduru_amani_akilzon/vo_120_loa_speaker_kinduru_amani_-_akilzon_01_m.ogg",
+    "sound/creature/loa_speaker_kinduru_amani_akilzon/vo_120_loa_speaker_kinduru_amani_-_akilzon_02_m.ogg",
+    "sound/creature/loa_speaker_kinduru_amani_akilzon/vo_120_loa_speaker_kinduru_amani_-_akilzon_03_m.ogg",
+    "sound/creature/loa_speaker_kinduru_amani_akilzon/vo_120_loa_speaker_kinduru_amani_-_akilzon_04_m.ogg",
+    "sound/creature/loa_speaker_kinduru_amani_akilzon/vo_120_loa_speaker_kinduru_amani_-_akilzon_05_m.ogg",
+    "sound/creature/loa_speaker_kinduru_amani_akilzon/vo_120_loa_speaker_kinduru_amani_-_akilzon_06_m.ogg",
+    "sound/creature/loa_speaker_kinduru_amani_akilzon/vo_120_loa_speaker_kinduru_amani_-_akilzon_07_m.ogg",
+    "sound/creature/loa_speaker_kinduru_amani_akilzon/vo_120_loa_speaker_kinduru_amani_-_akilzon_08_m.ogg"
+   ]
+  }
+ },
+ "amani-troll_female": {
+  "race": "Amani Troll",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Zawadi",
+    "npcID": "254376",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Wa'kani",
+    "npcID": "255553",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Magovu",
+    "npcID": "240279",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Shaja",
+    "npcID": "264710",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Gijaniji",
+    "npcID": "241072",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Ofi the Sly",
+    "npcID": "260226",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Eshaye",
+    "npcID": "258840",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "Kul'amara the Fierce",
+   "folder": "kulamara_the_fierce_witherbark_rep",
+   "source": "named NPC",
+   "clips": 56,
+   "referencePaths": [
+    "sound/creature/kulamara_the_fierce_witherbark_rep/vo_120_kulamara_the_fierce_witherbark_rep_01_f.ogg",
+    "sound/creature/kulamara_the_fierce_witherbark_rep/vo_120_kulamara_the_fierce_witherbark_rep_02_f.ogg",
+    "sound/creature/kulamara_the_fierce_witherbark_rep/vo_120_kulamara_the_fierce_witherbark_rep_03_f.ogg",
+    "sound/creature/kulamara_the_fierce_witherbark_rep/vo_120_kulamara_the_fierce_witherbark_rep_04_f.ogg",
+    "sound/creature/kulamara_the_fierce_witherbark_rep/vo_120_kulamara_the_fierce_witherbark_rep_05_f.ogg",
+    "sound/creature/kulamara_the_fierce_witherbark_rep/vo_120_kulamara_the_fierce_witherbark_rep_06_f.ogg",
+    "sound/creature/kulamara_the_fierce_witherbark_rep/vo_120_kulamara_the_fierce_witherbark_rep_07_f.ogg",
+    "sound/creature/kulamara_the_fierce_witherbark_rep/vo_120_kulamara_the_fierce_witherbark_rep_08_f.ogg"
+   ]
+  }
+ },
+ "amani-troll-child_female": {
+  "race": "Amani Troll",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Kanza",
+    "npcID": "258014",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "generic zulaman child",
+   "folder": "generic_zulaman_child",
+   "source": "generic pool",
+   "clips": 28,
+   "referencePaths": [
+    "sound/creature/generic_zulaman_child/vo_120_generic_zulaman_child_01_f.ogg",
+    "sound/creature/generic_zulaman_child/vo_120_generic_zulaman_child_01_m.ogg",
+    "sound/creature/generic_zulaman_child/vo_120_generic_zulaman_child_02_f.ogg",
+    "sound/creature/generic_zulaman_child/vo_120_generic_zulaman_child_02_m.ogg",
+    "sound/creature/generic_zulaman_child/vo_120_generic_zulaman_child_03_f.ogg",
+    "sound/creature/generic_zulaman_child/vo_120_generic_zulaman_child_03_m.ogg",
+    "sound/creature/generic_zulaman_child/vo_120_generic_zulaman_child_04_f.ogg",
+    "sound/creature/generic_zulaman_child/vo_120_generic_zulaman_child_04_m.ogg"
+   ]
+  }
+ },
+ "tortollan_neutral": {
+  "race": "Tortollan",
+  "sex": "",
+  "members": [
+   {
+    "npcName": "Second Mate Sluggs",
+    "npcID": "257598",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "generic tortollan",
+   "folder": "generic_tortollan",
+   "source": "generic pool",
+   "clips": 22,
+   "referencePaths": [
+    "sound/creature/generic_tortollan/vo_120_generic_tortollan_01_f.ogg",
+    "sound/creature/generic_tortollan/vo_120_generic_tortollan_01_m.ogg",
+    "sound/creature/generic_tortollan/vo_120_generic_tortollan_02_f.ogg",
+    "sound/creature/generic_tortollan/vo_120_generic_tortollan_02_m.ogg",
+    "sound/creature/generic_tortollan/vo_120_generic_tortollan_03_f.ogg",
+    "sound/creature/generic_tortollan/vo_120_generic_tortollan_03_m.ogg",
+    "sound/creature/generic_tortollan/vo_120_generic_tortollan_04_f.ogg",
+    "sound/creature/generic_tortollan/vo_120_generic_tortollan_04_m.ogg"
+   ]
+  }
+ },
+ "blood-elf_male_extra": {
+  "race": "Blood Elf",
+  "sex": "male",
+  "members": [
+   {
+    "npcName": "Captain Flaresworn",
+    "npcID": "243283",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Vyrin the Supplier",
+    "npcID": "240837",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Mirvedon",
+    "npcID": "243225",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Cataloger Crimsonmane",
+    "npcID": "258379",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Bemarrin",
+    "npcID": "241450",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Belil",
+    "npcID": "241455",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Caeris Fairdawn",
+    "npcID": "240838",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Tytalor Goldenblade",
+    "npcID": "237873",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "Lord Antenorian",
+   "folder": "lord_antenorian",
+   "source": "named NPC",
+   "clips": 49,
+   "referencePaths": [
+    "sound/creature/lord_antenorian/vo_120_lord_antenorian_01_m.ogg",
+    "sound/creature/lord_antenorian/vo_120_lord_antenorian_02_m.ogg",
+    "sound/creature/lord_antenorian/vo_120_lord_antenorian_03_m.ogg",
+    "sound/creature/lord_antenorian/vo_120_lord_antenorian_04_m.ogg",
+    "sound/creature/lord_antenorian/vo_120_lord_antenorian_05_m.ogg",
+    "sound/creature/lord_antenorian/vo_120_lord_antenorian_06_m.ogg",
+    "sound/creature/lord_antenorian/vo_120_lord_antenorian_07_m.ogg",
+    "sound/creature/lord_antenorian/vo_120_lord_antenorian_08_m.ogg"
+   ]
+  }
+ },
+ "blood-elf_female_extra": {
+  "race": "Blood Elf",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Propagandist Naicira",
+    "npcID": "256697",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Tyn",
+    "npcID": "243527",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Cataloger Truesight",
+    "npcID": "258381",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Zerella",
+    "npcID": "254971",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Danwe",
+    "npcID": "241452",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Botanist Nathera",
+    "npcID": "243355",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Farstrider Scout",
+    "npcID": "257459",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Vaultkeeper Elysa",
+    "npcID": "239670",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Eldara Dawnrunner",
+    "npcID": "243229",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "generic magistrix narinth",
+   "folder": "generic_magistrix_narinth",
+   "source": "generic pool",
+   "clips": 8,
+   "referencePaths": [
+    "sound/creature/generic_magistrix_narinth/vo_120_generic_magistrix_narinth_01_f.ogg",
+    "sound/creature/generic_magistrix_narinth/vo_120_generic_magistrix_narinth_02_f.ogg",
+    "sound/creature/generic_magistrix_narinth/vo_120_generic_magistrix_narinth_03_f.ogg",
+    "sound/creature/generic_magistrix_narinth/vo_120_generic_magistrix_narinth_04_f.ogg",
+    "sound/creature/generic_magistrix_narinth/vo_120_generic_magistrix_narinth_05_f.ogg",
+    "sound/creature/generic_magistrix_narinth/vo_120_generic_magistrix_narinth_06_f.ogg",
+    "sound/creature/generic_magistrix_narinth/vo_120_generic_magistrix_narinth_07_f.ogg",
+    "sound/creature/generic_magistrix_narinth/vo_120_generic_magistrix_narinth_08_f.ogg"
+   ]
+  }
+ },
+ "void-elf_male_extra": {
+  "race": "Void Elf",
+  "sex": "male",
+  "members": [
+   {
+    "npcName": "Cataloger Dae",
+    "npcID": "258624",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Void Researcher Anomander",
+    "npcID": "248328",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Messenger Aelor",
+    "npcID": "257544",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "pc void elf male",
+   "folder": "pc_void_elf_male",
+   "source": "generic pool",
+   "clips": 268,
+   "referencePaths": [
+    "sound/creature/pc_void_elf_male/vo_735_pc_-_void_elf_male_01_m.ogg",
+    "sound/creature/pc_void_elf_male/vo_735_pc_-_void_elf_male_02_m.ogg",
+    "sound/creature/pc_void_elf_male/vo_735_pc_-_void_elf_male_03_m.ogg",
+    "sound/creature/pc_void_elf_male/vo_735_pc_-_void_elf_male_05_m.ogg",
+    "sound/creature/pc_void_elf_male/vo_735_pc_-_void_elf_male_06_m.ogg",
+    "sound/creature/pc_void_elf_male/vo_735_pc_-_void_elf_male_07_m.ogg",
+    "sound/creature/pc_void_elf_male/vo_735_pc_-_void_elf_male_08_m.ogg",
+    "sound/creature/pc_void_elf_male/vo_735_pc_-_void_elf_male_09_m.ogg"
+   ]
+  }
+ },
+ "void-elf_female_extra": {
+  "race": "Void Elf",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Cataloger Ani",
+    "npcID": "258621",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "pc void elf female",
+   "folder": "pc_void_elf_female",
+   "source": "generic pool",
+   "clips": 264,
+   "referencePaths": [
+    "sound/creature/pc_void_elf_female/vo_735_pc_-_void_elf_female_01_f.ogg",
+    "sound/creature/pc_void_elf_female/vo_735_pc_-_void_elf_female_02_f.ogg",
+    "sound/creature/pc_void_elf_female/vo_735_pc_-_void_elf_female_03_f.ogg",
+    "sound/creature/pc_void_elf_female/vo_735_pc_-_void_elf_female_04_f.ogg",
+    "sound/creature/pc_void_elf_female/vo_735_pc_-_void_elf_female_05_f.ogg",
+    "sound/creature/pc_void_elf_female/vo_735_pc_-_void_elf_female_06_f.ogg",
+    "sound/creature/pc_void_elf_female/vo_735_pc_-_void_elf_female_07_f.ogg",
+    "sound/creature/pc_void_elf_female/vo_735_pc_-_void_elf_female_08_f.ogg"
+   ]
+  }
+ },
+ "troll_male_extra": {
+  "race": "Troll",
+  "sex": "male",
+  "members": [
+   {
+    "npcName": "Loa Speaker Yl'mul",
+    "npcID": "257298",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Jelvik",
+    "npcID": "254605",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Jen'bagwa",
+    "npcID": "259397",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "pc zandalari troll male",
+   "folder": "pc_zandalari_troll_male",
+   "source": "race-exact player voice set (Zandalari)",
+   "clips": 26
+  }
+ },
+ "troll_female_extra": {
+  "race": "Troll",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Kalaya",
+    "npcID": "259191",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "Loa Speaker Nanea",
+   "folder": "loa_speaker_nanea_revantusk_nalorakk",
+   "source": "named NPC",
+   "clips": 33,
+   "referencePaths": [
+    "sound/creature/loa_speaker_nanea_revantusk_nalorakk/vo_120_loa_speaker_nanea_revantusk_-_nalorakk_01_f.ogg",
+    "sound/creature/loa_speaker_nanea_revantusk_nalorakk/vo_120_loa_speaker_nanea_revantusk_-_nalorakk_02_f.ogg",
+    "sound/creature/loa_speaker_nanea_revantusk_nalorakk/vo_120_loa_speaker_nanea_revantusk_-_nalorakk_03_f.ogg",
+    "sound/creature/loa_speaker_nanea_revantusk_nalorakk/vo_120_loa_speaker_nanea_revantusk_-_nalorakk_04_f.ogg",
+    "sound/creature/loa_speaker_nanea_revantusk_nalorakk/vo_120_loa_speaker_nanea_revantusk_-_nalorakk_05_f.ogg",
+    "sound/creature/loa_speaker_nanea_revantusk_nalorakk/vo_120_loa_speaker_nanea_revantusk_-_nalorakk_06_f.ogg",
+    "sound/creature/loa_speaker_nanea_revantusk_nalorakk/vo_120_loa_speaker_nanea_revantusk_-_nalorakk_07_f.ogg",
+    "sound/creature/loa_speaker_nanea_revantusk_nalorakk/vo_120_loa_speaker_nanea_revantusk_-_nalorakk_08_f.ogg"
+   ]
+  }
+ },
+ "goblin_female": {
+  "race": "Goblin",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Cataloger Snapshot",
+    "npcID": "258396",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "pc goblin female",
+   "folder": "pcgoblinfemale",
+   "source": "generic pool",
+   "clips": 143,
+   "referencePaths": [
+    "sound/creature/pcgoblinfemale/vo_pcgoblinfemale_attackmytarget01.ogg",
+    "sound/creature/pcgoblinfemale/vo_pcgoblinfemale_attackmytarget02.ogg",
+    "sound/creature/pcgoblinfemale/vo_pcgoblinfemale_attackmytarget03.ogg",
+    "sound/creature/pcgoblinfemale/vo_pcgoblinfemale_charge01.ogg",
+    "sound/creature/pcgoblinfemale/vo_pcgoblinfemale_charge02.ogg",
+    "sound/creature/pcgoblinfemale/vo_pcgoblinfemale_charge03.ogg",
+    "sound/creature/pcgoblinfemale/vo_pcgoblinfemale_charge04.ogg",
+    "sound/creature/pcgoblinfemale/vo_pcgoblinfemale_charge05.ogg"
+   ]
+  }
+ },
+ "orc_female": {
+  "race": "Orc",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Cataloger Lursa",
+    "npcID": "258618",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "pc maghar orc female",
+   "folder": "pc_maghar_orc_female",
+   "source": "generic pool",
+   "clips": 240,
+   "referencePaths": [
+    "sound/creature/pc_maghar_orc_female/vo_801_pc_maghar_orc_female_01_f.ogg",
+    "sound/creature/pc_maghar_orc_female/vo_801_pc_maghar_orc_female_02_f.ogg",
+    "sound/creature/pc_maghar_orc_female/vo_801_pc_maghar_orc_female_03_f.ogg",
+    "sound/creature/pc_maghar_orc_female/vo_801_pc_maghar_orc_female_04_f.ogg",
+    "sound/creature/pc_maghar_orc_female/vo_801_pc_maghar_orc_female_05_f.ogg",
+    "sound/creature/pc_maghar_orc_female/vo_801_pc_maghar_orc_female_06_f.ogg",
+    "sound/creature/pc_maghar_orc_female/vo_801_pc_maghar_orc_female_07_f.ogg",
+    "sound/creature/pc_maghar_orc_female/vo_801_pc_maghar_orc_female_08_f.ogg"
+   ]
+  }
+ },
+ "human_female_extra": {
+  "race": "Human",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Cataloger Neef",
+    "npcID": "258431",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "Nadia Brighton",
+   "folder": "nadia_brighton",
+   "source": "named NPC",
+   "clips": 15,
+   "referencePaths": [
+    "sound/creature/nadia_brighton/vo_120_nadia_brighton_01_f.ogg",
+    "sound/creature/nadia_brighton/vo_120_nadia_brighton_02_f.ogg",
+    "sound/creature/nadia_brighton/vo_120_nadia_brighton_03_f.ogg",
+    "sound/creature/nadia_brighton/vo_120_nadia_brighton_04_f.ogg",
+    "sound/creature/nadia_brighton/vo_120_nadia_brighton_05_f.ogg",
+    "sound/creature/nadia_brighton/vo_120_nadia_brighton_06_f.ogg",
+    "sound/creature/nadia_brighton/vo_120_nadia_brighton_07_f.ogg",
+    "sound/creature/nadia_brighton/vo_120_nadia_brighton_08_f.ogg"
+   ]
+  }
+ },
+ "pandaren_female": {
+  "race": "Pandaren",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Cataloger Zhu",
+    "npcID": "258412",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "pc pandaren female",
+   "folder": "pcpandarenfemale",
+   "source": "generic pool",
+   "clips": 244,
+   "referencePaths": [
+    "sound/creature/pcpandarenfemale/vo_pandarenfemale_foralliance_01.ogg",
+    "sound/creature/pcpandarenfemale/vo_pandarenfemale_forhorde_01.ogg",
+    "sound/creature/pcpandarenfemale/vo_pandarenfemale_main_battleshoutlarge_01.ogg",
+    "sound/creature/pcpandarenfemale/vo_pandarenfemale_main_battleshoutlarge_02.ogg",
+    "sound/creature/pcpandarenfemale/vo_pandarenfemale_main_battleshoutlarge_03.ogg",
+    "sound/creature/pcpandarenfemale/vo_pandarenfemale_main_battleshoutlarge_04.ogg",
+    "sound/creature/pcpandarenfemale/vo_pandarenfemale_main_battleshoutlarge_05.ogg",
+    "sound/creature/pcpandarenfemale/vo_pandarenfemale_main_battleshoutlarge_06.ogg"
+   ]
+  }
+ },
+ "pandaren_male_extra": {
+  "race": "Pandaren",
+  "sex": "male",
+  "members": [
+   {
+    "npcName": "Chon Po Stormstout",
+    "npcID": "231913",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "Chen Stormstout",
+   "folder": "chen_stormstout",
+   "source": "named NPC",
+   "clips": 93,
+   "referencePaths": [
+    "sound/creature/chen_stormstout/vo_1127_chen_stormstout_01_m.ogg",
+    "sound/creature/chen_stormstout/vo_1127_chen_stormstout_02_m.ogg",
+    "sound/creature/chen_stormstout/vo_1127_chen_stormstout_03_m.ogg",
+    "sound/creature/chen_stormstout/vo_1127_chen_stormstout_04_m.ogg",
+    "sound/creature/chen_stormstout/vo_1127_chen_stormstout_05_m.ogg",
+    "sound/creature/chen_stormstout/vo_1127_chen_stormstout_06_m.ogg",
+    "sound/creature/chen_stormstout/vo_1127_chen_stormstout_07_m.ogg",
+    "sound/creature/chen_stormstout/vo_1127_chen_stormstout_08_m.ogg"
+   ]
+  }
+ },
+ "draenei_female": {
+  "race": "Lightforged Draenei",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Archmage Y'mera",
+    "npcID": "259688",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "War Chaplain Senn",
+   "folder": "war_chaplain_senn",
+   "source": "named NPC",
+   "clips": 31,
+   "referencePaths": [
+    "sound/creature/war_chaplain_senn/vo_120_war_chaplain_senn_01_f.ogg",
+    "sound/creature/war_chaplain_senn/vo_120_war_chaplain_senn_02_f.ogg",
+    "sound/creature/war_chaplain_senn/vo_120_war_chaplain_senn_03_f.ogg",
+    "sound/creature/war_chaplain_senn/vo_120_war_chaplain_senn_04_f.ogg",
+    "sound/creature/war_chaplain_senn/vo_120_war_chaplain_senn_05_f.ogg",
+    "sound/creature/war_chaplain_senn/vo_120_war_chaplain_senn_06_f.ogg",
+    "sound/creature/war_chaplain_senn/vo_120_war_chaplain_senn_07_f.ogg",
+    "sound/creature/war_chaplain_senn/vo_120_war_chaplain_senn_08_f.ogg"
+   ]
+  }
+ },
+ "dracthyr_female": {
+  "race": "Dracthyr",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Vaskarn",
+    "npcID": "239676",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "dracthyr visage female",
+   "folder": "dracthyr_visage_female",
+   "source": "generic pool",
+   "clips": 156,
+   "referencePaths": [
+    "sound/creature/dracthyr_visage_female/vo_dracthyr_visage_female_abilitycooling_4758647.ogg",
+    "sound/creature/dracthyr_visage_female/vo_dracthyr_visage_female_abilitycooling_4758648.ogg",
+    "sound/creature/dracthyr_visage_female/vo_dracthyr_visage_female_abilitycooling_4758649.ogg",
+    "sound/creature/dracthyr_visage_female/vo_dracthyr_visage_female_alliance_4758635.ogg",
+    "sound/creature/dracthyr_visage_female/vo_dracthyr_visage_female_alreadyingroup_4758694.ogg",
+    "sound/creature/dracthyr_visage_female/vo_dracthyr_visage_female_apologize_4758831.ogg",
+    "sound/creature/dracthyr_visage_female/vo_dracthyr_visage_female_applaud_4740969.ogg",
+    "sound/creature/dracthyr_visage_female/vo_dracthyr_visage_female_attackmytarget_4758620.ogg"
+   ]
+  }
+ },
+ "undead_male_extra": {
+  "race": "Undead",
+  "sex": "male",
+  "members": [
+   {
+    "npcName": "Alton Philips",
+    "npcID": "252933",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "Alonsus Faol",
+   "folder": "alonsus_faol",
+   "source": "named NPC",
+   "clips": 70,
+   "referencePaths": [
+    "sound/creature/alonsus_faol/vo_120_alonsus_faol_01_m.ogg",
+    "sound/creature/alonsus_faol/vo_120_alonsus_faol_02_m.ogg",
+    "sound/creature/alonsus_faol/vo_120_alonsus_faol_03_m.ogg",
+    "sound/creature/alonsus_faol/vo_120_alonsus_faol_04_m.ogg",
+    "sound/creature/alonsus_faol/vo_120_alonsus_faol_05_m.ogg",
+    "sound/creature/alonsus_faol/vo_120_alonsus_faol_06_m.ogg",
+    "sound/creature/alonsus_faol/vo_120_alonsus_faol_07_m.ogg",
+    "sound/creature/alonsus_faol/vo_120_alonsus_faol_08_m.ogg"
+   ]
+  }
+ },
+ "haranir_female_extra": {
+  "race": "Haranir",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Fervent Druidess",
+    "npcID": "255270",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Greenspeaker Cyenna",
+    "npcID": "246607",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "Elder Hagar",
+   "folder": "hagar",
+   "source": "named NPC",
+   "clips": 95,
+   "referencePaths": [
+    "sound/creature/hagar/vo_120_hagar_01_f.ogg",
+    "sound/creature/hagar/vo_120_hagar_02_f.ogg",
+    "sound/creature/hagar/vo_120_hagar_03_f.ogg",
+    "sound/creature/hagar/vo_120_hagar_04_f.ogg",
+    "sound/creature/hagar/vo_120_hagar_05_f.ogg",
+    "sound/creature/hagar/vo_120_hagar_06_f.ogg",
+    "sound/creature/hagar/vo_120_hagar_07_f.ogg",
+    "sound/creature/hagar/vo_120_hagar_08_f.ogg"
+   ]
+  }
+ },
+ "haranir-child_female": {
+  "race": "Haranir",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "Su'meera",
+    "npcID": "245637",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "generic haranir child",
+   "folder": "generic_haranir_child",
+   "source": "generic pool",
+   "clips": 16,
+   "referencePaths": [
+    "sound/creature/generic_haranir_child/vo_120_generic_haranir_child_01_f.ogg",
+    "sound/creature/generic_haranir_child/vo_120_generic_haranir_child_01_m.ogg",
+    "sound/creature/generic_haranir_child/vo_120_generic_haranir_child_02_f.ogg",
+    "sound/creature/generic_haranir_child/vo_120_generic_haranir_child_02_m.ogg",
+    "sound/creature/generic_haranir_child/vo_120_generic_haranir_child_03_f.ogg",
+    "sound/creature/generic_haranir_child/vo_120_generic_haranir_child_03_m.ogg",
+    "sound/creature/generic_haranir_child/vo_120_generic_haranir_child_04_f.ogg",
+    "sound/creature/generic_haranir_child/vo_120_generic_haranir_child_04_m.ogg"
+   ]
+  }
+ },
+ "ethereal_neutral": {
+  "race": "Ethereal",
+  "sex": "",
+  "members": [
+   {
+    "npcName": "Kifaan",
+    "npcID": "244516",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "generic shadowguard ethereal",
+   "folder": "generic_shadowguard_ethereal",
+   "source": "generic pool",
+   "clips": 17,
+   "referencePaths": [
+    "sound/creature/generic_shadowguard_ethereal/vo_120_generic_shadowguard_ethereal_01_f.ogg",
+    "sound/creature/generic_shadowguard_ethereal/vo_120_generic_shadowguard_ethereal_01_m.ogg",
+    "sound/creature/generic_shadowguard_ethereal/vo_120_generic_shadowguard_ethereal_02_f.ogg",
+    "sound/creature/generic_shadowguard_ethereal/vo_120_generic_shadowguard_ethereal_02_m.ogg",
+    "sound/creature/generic_shadowguard_ethereal/vo_120_generic_shadowguard_ethereal_03_f.ogg",
+    "sound/creature/generic_shadowguard_ethereal/vo_120_generic_shadowguard_ethereal_03_m.ogg",
+    "sound/creature/generic_shadowguard_ethereal/vo_120_generic_shadowguard_ethereal_04_f.ogg",
+    "sound/creature/generic_shadowguard_ethereal/vo_120_generic_shadowguard_ethereal_04_m.ogg"
+   ]
+  }
+ }
 }
