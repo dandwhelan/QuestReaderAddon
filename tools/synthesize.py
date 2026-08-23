@@ -100,15 +100,42 @@ TARGET_LUFS = -16.0
 # branch the listener should hear -- that is the player's own gender, not the
 # speaker's -- so take the first and move on. Left unhandled the model reads the
 # punctuation aloud, which is worse than picking.
-PLAYER_NAME_TOKEN = re.compile(r"\$[nN]")
+#
+# The two sources spell the same idea differently and both reach synthesis.
+# The in-game harvester writes the server's own "$n"; wowhead_quests.py scrapes
+# pages that render it as "<name>", with "<class>" and "<race>" alongside. Only
+# the dollar form was handled at first, so "<name>" travelled all the way into
+# the audio and was read aloud as a word -- audible in quest 93024.
+PLAYER_NAME_TOKEN = re.compile(r"\$[nN]|<\s*name\s*>", re.IGNORECASE)
+PLAYER_CLASS_TOKEN = re.compile(r"\$[cC]|<\s*class\s*>", re.IGNORECASE)
+PLAYER_RACE_TOKEN = re.compile(r"\$[rR]|<\s*race\s*>", re.IGNORECASE)
 GENDER_TOKEN = re.compile(r"\$[gG]\s*([^:;]*):([^;]*);?")
 
+# Angle brackets also carry stage directions -- "<Brek laughs.>", "<Soridormi
+# winks.>" -- which the game shows the player but nobody speaks. Left in, the
+# NPC narrates their own body language in their own voice. Dropped after the
+# placeholders above are resolved, so only genuine directions are left to match.
+STAGE_DIRECTION = re.compile(r"<[^<>]{2,120}?>")
 
-def render_tokens(text, player_term="champion"):
-    """Turn the server's substitution tokens into speakable words."""
+
+def render_tokens(text, player_term="champion", class_term="hero",
+                  race_term="traveller", drop_stage_directions=True):
+    """Turn substitution tokens and stage directions into speakable text.
+
+    Both harvest sources are handled together because a passage does not
+    record which one it came from, and a token left unresolved is not silently
+    wrong -- it is read out loud.
+    """
     text = PLAYER_NAME_TOKEN.sub(player_term, text)
+    text = PLAYER_CLASS_TOKEN.sub(class_term, text)
+    text = PLAYER_RACE_TOKEN.sub(race_term, text)
     text = GENDER_TOKEN.sub(lambda m: m.group(1).strip(), text)
-    return text
+    if drop_stage_directions:
+        text = STAGE_DIRECTION.sub(" ", text)
+    # Removing a direction can leave a doubled space or a space before a stop.
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    text = re.sub(r" +([,.;:!?])", r"\1", text)
+    return text.strip()
 
 
 def load_lexicon(path):
@@ -418,8 +445,15 @@ def main():
                              "--default-voice this does not stand in for named "
                              "NPCs, who should sound like themselves")
     parser.add_argument("--player-term", default="champion",
-                        help="what to say where the harvested text carries "
-                             "$n, the player's own name (default champion)")
+                        help="what to say where the text carries the player's "
+                             "own name, as $n or <name> (default champion)")
+    parser.add_argument("--class-term", default="hero",
+                        help="what to say for $c / <class> (default hero)")
+    parser.add_argument("--race-term", default="traveller",
+                        help="what to say for $r / <race> (default traveller)")
+    parser.add_argument("--keep-stage-directions", action="store_true",
+                        help="speak '<Brek laughs.>' aloud instead of dropping "
+                             "it. Off by default: nobody says these lines")
     parser.add_argument("--lexicon",
                         default=os.path.join(
                             os.path.dirname(os.path.abspath(__file__)),
@@ -522,7 +556,9 @@ def main():
             novoice[passage.get("npcName") or "(no NPC)"] += 1
             continue
 
-        text = render_tokens(passage["text"], args.player_term)
+        text = render_tokens(passage["text"], args.player_term,
+                             args.class_term, args.race_term,
+                             drop_stage_directions=not args.keep_stage_directions)
         text = respell(text) if respell else text
         planned.append((target, text,
                         pick_references(clips, budget=args.reference_seconds),
