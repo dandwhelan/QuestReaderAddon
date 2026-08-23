@@ -80,6 +80,11 @@ COMBAT_MARKERS = ("attack", "aggro", "death", "pain", "wound", "kill",
 # than it is today.
 TARGET_LUFS = -16.0
 
+# Longest silence left inside a clip. Measured on 93024_completion, whose worst
+# gap ran to 1.81 s; capping at this leaves the phrasing intact and reclaimed
+# 3.7 s of dead air from an 18.8 s clip. Set to 0 to leave pauses alone.
+MAX_PAUSE_SECONDS = 0.45
+
 # Pitch matching was tried here and removed. A clone can sit an interval off
 # the voice it came from — measured at +6.5% on Tak'lejo against -1.7% on
 # Riftblade Maella — and correcting it is a plain frequency ratio, so it
@@ -106,7 +111,11 @@ TARGET_LUFS = -16.0
 # pages that render it as "<name>", with "<class>" and "<race>" alongside. Only
 # the dollar form was handled at first, so "<name>" travelled all the way into
 # the audio and was read aloud as a word -- audible in quest 93024.
-PLAYER_NAME_TOKEN = re.compile(r"\$[nN]|<\s*name\s*>", re.IGNORECASE)
+#
+# $m is not a token the client documents, but it appears once ("Dey must be
+# dealt with, $m.") in a position that plainly addresses the player, so it is
+# read the same way rather than left to be spoken.
+PLAYER_NAME_TOKEN = re.compile(r"\$[nNmM]|<\s*name\s*>", re.IGNORECASE)
 PLAYER_CLASS_TOKEN = re.compile(r"\$[cC]|<\s*class\s*>", re.IGNORECASE)
 PLAYER_RACE_TOKEN = re.compile(r"\$[rR]|<\s*race\s*>", re.IGNORECASE)
 GENDER_TOKEN = re.compile(r"\$[gG]\s*([^:;]*):([^;]*);?")
@@ -116,6 +125,12 @@ GENDER_TOKEN = re.compile(r"\$[gG]\s*([^:;]*):([^;]*);?")
 # NPC narrates their own body language in their own voice. Dropped after the
 # placeholders above are resolved, so only genuine directions are left to match.
 STAGE_DIRECTION = re.compile(r"<[^<>]{2,120}?>")
+
+# Anything token-shaped still standing after rendering is a class of artifact
+# nobody has taught this function about yet. That has happened twice -- "<name>"
+# and "$m" both reached generated audio and were read aloud -- and both times
+# the only symptom was someone hearing it months later. Cheap to notice here.
+RESIDUAL_TOKEN = re.compile(r"\$[a-zA-Z]|<[^<>]{1,120}>|&[a-zA-Z]{2,8};|&#\d+;")
 
 
 def render_tokens(text, player_term="champion", class_term="hero",
@@ -279,7 +294,8 @@ def match_voice(voices, npc_name, fallback=None):
     return None
 
 
-def encode_ogg(wav_path, ogg_path, quality=4, normalize=True, speed=1.0):
+def encode_ogg(wav_path, ogg_path, quality=4, normalize=True, speed=1.0,
+               max_pause=MAX_PAUSE_SECONDS):
     """Trim, level and encode to Ogg Vorbis, the format game and addon share.
 
     Synthesis output varies in level between clips and often carries a beat of
@@ -294,6 +310,21 @@ def encode_ogg(wav_path, ogg_path, quality=4, normalize=True, speed=1.0):
         # loudnorm resamples to 192 kHz internally; bring it back to the rate
         # the rest of the library uses.
         filters.append("aresample=24000")
+    if max_pause:
+        # F5 decides sentence-boundary pauses stochastically, and on an unlucky
+        # sample they run to 1.8 s -- measured on 93024_completion, which holds
+        # two of them 0.32 s apart, stranding one word between two silences and
+        # spending 37% of the clip on dead air. Length of text does not predict
+        # it and regenerating is a reroll, so the pause is capped here instead.
+        #
+        # Capped, not removed: the short pauses are the phrasing. F5's own
+        # remove_silence uses split_on_silence and takes all of them, which is
+        # why it stays off.
+        #
+        # After loudnorm so the threshold reads against a known level, and
+        # before atempo so the cap is stated in the text's own timebase.
+        filters.append(f"silenceremove=stop_periods=-1:stop_duration={max_pause}"
+                       f":stop_threshold=-40dB:detection=peak")
     if abs(speed - 1.0) > 0.001:
         # atempo changes tempo only, unlike asetrate, which moves pitch along
         # with it — a faster read should not also sound higher-pitched.
@@ -536,7 +567,7 @@ def main():
                      f"{args.reference}.")
 
     respell = load_lexicon(args.lexicon)
-    planned, done, novoice = [], 0, {}
+    planned, done, novoice, residual = [], 0, {}, []
     for passage in passages:
         quest_id = str(passage["questID"])
         if wanted and quest_id not in wanted:
@@ -567,6 +598,9 @@ def main():
         text = render_tokens(passage["text"], args.player_term,
                              args.class_term, args.race_term,
                              drop_stage_directions=not args.keep_stage_directions)
+        leftover = RESIDUAL_TOKEN.findall(text)
+        if leftover:
+            residual.append((name, sorted(set(leftover))[:4]))
         text = respell(text) if respell else text
         planned.append((target, text,
                         pick_references(clips, budget=args.reference_seconds),
@@ -577,6 +611,15 @@ def main():
     print(f"  already done: {done:>5}", file=sys.stderr)
     print(f"  no voice    : {sum(novoice.values()):>5}"
           f" across {len(novoice)} NPC(s)", file=sys.stderr)
+
+    if residual:
+        print(f"\n{len(residual)} passage(s) still carry something token-shaped "
+              f"after rendering. Anything left here gets SPOKEN ALOUD -- check "
+              f"before generating:", file=sys.stderr)
+        for name, found in residual[:10]:
+            print(f"  {name}: {', '.join(found)}", file=sys.stderr)
+        if len(residual) > 10:
+            print(f"  ... and {len(residual) - 10} more", file=sys.stderr)
 
     if novoice:
         print("\nNPCs with no reference audio, needing a fallback voice:",
