@@ -1132,5 +1132,103 @@
     "sound/creature/generic_shadowguard_ethereal/vo_120_generic_shadowguard_ethereal_04_m.ogg"
    ]
   }
+ },
+ "human_female": {
+  "race": "Human",
+  "sex": "female",
+  "members": [
+   {
+    "npcName": "General Steelstrike",
+    "npcID": "225188",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "General Steelstrike",
+    "npcID": "212076",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "General Steelstrike",
+    "npcID": "215335",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "General Steelstrike",
+    "npcID": "213108",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "General Steelstrike",
+    "npcID": "224154",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "Vaelisia Steelstrike",
+   "folder": "vaelisia_steelstrike",
+   "source": "named NPC",
+   "clips": 96,
+   "referencePaths": [
+    "sound/creature/vaelisia_steelstrike/vo_110_vaelisia_steelstrike_100_f.ogg",
+    "sound/creature/vaelisia_steelstrike/vo_110_vaelisia_steelstrike_101_f.ogg",
+    "sound/creature/vaelisia_steelstrike/vo_110_vaelisia_steelstrike_102_f.ogg",
+    "sound/creature/vaelisia_steelstrike/vo_110_vaelisia_steelstrike_103_f.ogg",
+    "sound/creature/vaelisia_steelstrike/vo_110_vaelisia_steelstrike_104_f.ogg",
+    "sound/creature/vaelisia_steelstrike/vo_110_vaelisia_steelstrike_105_f.ogg",
+    "sound/creature/vaelisia_steelstrike/vo_110_vaelisia_steelstrike_106_f.ogg",
+    "sound/creature/vaelisia_steelstrike/vo_110_vaelisia_steelstrike_107_f.ogg"
+   ]
+  }
+ },
+ "earthen_male": {
+  "race": "Earthen",
+  "sex": "male",
+  "members": [
+   {
+    "npcName": "Berrund the Gleaming",
+    "npcID": "215788",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Berrund the Gleaming",
+    "npcID": "215836",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Berrund the Gleaming",
+    "npcID": "220220",
+    "clips": 0,
+    "needsFallback": true
+   },
+   {
+    "npcName": "Berrund the Gleaming",
+    "npcID": "215822",
+    "clips": 0,
+    "needsFallback": true
+   }
+  ],
+  "donor": {
+   "npcName": "generic earthen dornogal cityfolk (oathsworn)",
+   "folder": "earthen_dornogal_cityfolk_generic_oathsworn",
+   "source": "generic pool",
+   "clips": 48,
+   "referencePaths": [
+    "sound/creature/earthen_dornogal_cityfolk_generic_oathsworn/vo_110_earthen_dornogal_cityfolk_generic_oathsworn_10_f.ogg",
+    "sound/creature/earthen_dornogal_cityfolk_generic_oathsworn/vo_110_earthen_dornogal_cityfolk_generic_oathsworn_10_m.ogg",
+    "sound/creature/earthen_dornogal_cityfolk_generic_oathsworn/vo_110_earthen_dornogal_cityfolk_generic_oathsworn_11_f.ogg",
+    "sound/creature/earthen_dornogal_cityfolk_generic_oathsworn/vo_110_earthen_dornogal_cityfolk_generic_oathsworn_11_m.ogg",
+    "sound/creature/earthen_dornogal_cityfolk_generic_oathsworn/vo_110_earthen_dornogal_cityfolk_generic_oathsworn_12_f.ogg",
+    "sound/creature/earthen_dornogal_cityfolk_generic_oathsworn/vo_110_earthen_dornogal_cityfolk_generic_oathsworn_12_m.ogg",
+    "sound/creature/earthen_dornogal_cityfolk_generic_oathsworn/vo_110_earthen_dornogal_cityfolk_generic_oathsworn_13_f.ogg",
+    "sound/creature/earthen_dornogal_cityfolk_generic_oathsworn/vo_110_earthen_dornogal_cityfolk_generic_oathsworn_13_m.ogg"
+   ]
+  }
  }
 }
