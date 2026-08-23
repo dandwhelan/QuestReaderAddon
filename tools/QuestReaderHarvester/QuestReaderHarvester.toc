@@ -1,6 +1,6 @@
 ## Interface: 110207, 120000, 120001, 120100
-## Title: Quest Reader Harvester
-## Notes: Records quest text and the NPC who speaks it, for voiceover generation.
+## Title: SpeakStone Harvester
+## Notes: Records quest, gossip, and book text for voiceover generation.
 ## Author: clhammer
 ## Version: 0.1
 ## SavedVariables: QuestReaderHarvesterDB

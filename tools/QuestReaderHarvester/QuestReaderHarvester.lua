@@ -46,10 +46,64 @@ local function CurrentSpeaker()
     }
 end
 
+-- Server text arrives with the player's own identity already substituted into
+-- it: "$n" has become the character's name before the addon ever sees the
+-- string. Left alone that has three costs. Two players' captures of the same
+-- line are different text, so they can never confirm each other. A stranger's
+-- character name gets baked into generated audio. And the name travels to
+-- whoever the capture is shared with, for no purpose.
+--
+-- The name is put back as "$n" at capture time, so it never reaches
+-- SavedVariables at all and nothing downstream has to know it existed.
+--
+-- Only the name is reverted here. Class and race substitutions are just as
+-- real -- a Silvermoon Guard greets a priest as "priest", which is $c -- but
+-- words like "priest" also occur naturally in quest text, and a single
+-- capture cannot tell the two apart. Guessing would corrupt genuine lines, so
+-- class and race travel as metadata instead (see PlayerMetadata) and are
+-- resolved where several players' captures of one line can be compared.
+local playerNamePattern = nil
+
+local function EscapePattern(s)
+    return (s:gsub("(%W)", "%%%1"))
+end
+
+local function Detokenize(text)
+    if not text or text == "" then
+        return text
+    end
+    if not playerNamePattern then
+        local name = UnitName("player")
+        if not name or name == "" then
+            return text
+        end
+        playerNamePattern = EscapePattern(name)
+    end
+    return (text:gsub(playerNamePattern, "$n"))
+end
+
+-- Race, class and gender decide which branch of $r/$c/$g the server rendered
+-- into a line, so a capture is only interpretable alongside them.
+local function PlayerMetadata()
+    local localizedClass, classToken = UnitClass("player")
+    local localizedRace, raceToken = UnitRace("player")
+    return {
+        playerClass = classToken,
+        playerClassName = localizedClass,
+        playerRace = raceToken,
+        playerRaceName = localizedRace,
+        -- 1 unknown, 2 male, 3 female.
+        playerSex = UnitSex("player"),
+        faction = UnitFactionGroup("player"),
+    }
+end
+
 local function RecordPassage(questID, passage, text)
     if not questID or questID == 0 or not text or text == "" then
         return
     end
+
+    text = Detokenize(text)
 
     local quests = QuestReaderHarvesterDB.quests
     local entry = quests[questID]
@@ -83,6 +137,11 @@ local function RecordGossip(npcID, npcName, text)
         return
     end
 
+    -- Before the duplicate check, not after: two greetings that differ only by
+    -- the player's name are the same greeting, and comparing the raw strings
+    -- would store both.
+    text = Detokenize(text)
+
     local gossip = QuestReaderHarvesterDB.gossip
     local entry = gossip[npcID]
     if not entry then
@@ -105,7 +164,13 @@ local function RecordItemText(itemID, itemName, page, text)
         return
     end
 
+    text = Detokenize(text)
+
     local items = QuestReaderHarvesterDB.itemText
+    -- Plaques and world objects are read through the same frame as books but
+    -- carry no item link, so they can only be keyed by name. Both key shapes
+    -- have to be accepted; the ID is recorded whenever it is known so the two
+    -- can be reconciled later.
     local key = itemID or itemName or "unknown"
     local entry = items[key]
     if not entry then
@@ -113,7 +178,18 @@ local function RecordItemText(itemID, itemName, page, text)
         items[key] = entry
     end
     entry.itemName = itemName or entry.itemName
+    entry.itemID = itemID or entry.itemID
     entry.pages[page or 1] = text
+end
+
+local function ShouldPrintDebug()
+    if QuestReaderAddonDB and QuestReaderAddonDB.showDebugMessages ~= nil then
+        return QuestReaderAddonDB.showDebugMessages
+    end
+    if QuestReaderHarvesterDB and QuestReaderHarvesterDB.showDebugMessages ~= nil then
+        return QuestReaderHarvesterDB.showDebugMessages
+    end
+    return false
 end
 
 local harvester = CreateFrame("Frame")
@@ -147,7 +223,9 @@ harvester:SetScript("OnEvent", function(self, event, loadedAddon)
         local page = ItemTextGetPage() or 1
         local text = ItemTextGetText()
         RecordItemText(itemID, itemName, page, text)
-        print("Quest Reader Harvester: captured '" .. (itemName or "item") .. "' (Page " .. page .. ")")
+        if ShouldPrintDebug() then
+            print("SpeakStone Harvester: captured '" .. (itemName or "item") .. "' (Page " .. page .. ")")
+        end
         return
     end
 
@@ -220,14 +298,18 @@ local function ShowExportFrame()
 
         local title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
         title:SetPoint("TOP", f, "TOP", 0, -16)
-        title:SetText("Quest Reader Harvester — Export Data")
+        title:SetText("SpeakStone Harvester — Export Data")
 
         local subtitle = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         subtitle:SetPoint("TOP", title, "BOTTOM", 0, -6)
-        subtitle:SetText("Press Ctrl+A then Ctrl+C to copy all captured data for the developers:")
+        subtitle:SetText("Press Ctrl+A then Ctrl+C, then paste it at speakstone.beanw.co.uk")
+
+        local privacy = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        privacy:SetPoint("TOP", subtitle, "BOTTOM", 0, -4)
+        privacy:SetText("Your character name is already removed from the text below.")
 
         local scroll = CreateFrame("ScrollFrame", "QRHExportScroll", f, "UIPanelScrollFrameTemplate")
-        scroll:SetPoint("TOPLEFT", f, "TOPLEFT", 20, -65)
+        scroll:SetPoint("TOPLEFT", f, "TOPLEFT", 20, -80)
         scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -40, 52)
 
         local editBox = CreateFrame("EditBox", nil, scroll)
@@ -251,10 +333,16 @@ local function ShowExportFrame()
     local exportData = {
         locale = GetLocale(),
         build = select(2, GetBuildInfo()),
+        addonVersion = (C_AddOns and C_AddOns.GetAddOnMetadata
+                        and C_AddOns.GetAddOnMetadata(addonName, "Version")) or "unknown",
         quests = QuestReaderHarvesterDB.quests or {},
         gossip = QuestReaderHarvesterDB.gossip or {},
         itemText = QuestReaderHarvesterDB.itemText or {},
     }
+
+    for key, value in pairs(PlayerMetadata()) do
+        exportData[key] = value
+    end
 
     local function SimpleSerialize(tbl, indent)
         indent = indent or ""
@@ -279,13 +367,13 @@ local function ShowExportFrame()
     exportFrame:Show()
 end
 
-SLASH_QUESTREADERHARVEST1 = "/qrharvest"
+SLASH_QUESTREADERHARVEST1, SLASH_QUESTREADERHARVEST2, SLASH_QUESTREADERHARVEST3 = "/qrharvest", "/ssharvest", "/speakstoneharvest"
 SlashCmdList["QUESTREADERHARVEST"] = function(msg)
-    if msg == "wipe" then
+    if msg == "wipe" or msg == "clear" then
         QuestReaderHarvesterDB.quests = {}
         QuestReaderHarvesterDB.gossip = {}
         QuestReaderHarvesterDB.itemText = {}
-        print("Quest Reader Harvester: cleared.")
+        print("SpeakStone Harvester: cleared.")
         return
     elseif msg == "export" or msg == "copy" then
         ShowExportFrame()
@@ -293,7 +381,7 @@ SlashCmdList["QUESTREADERHARVEST"] = function(msg)
     end
 
     local quests, passages, unvoiced = CountCaptures()
-    print("Quest Reader Harvester: " .. quests .. " quest(s), "
+    print("SpeakStone Harvester: " .. quests .. " quest(s), "
           .. passages .. " passage(s) captured.")
     if unvoiced > 0 then
         -- A passage with no creature ID cannot be matched to a voice later.
@@ -308,6 +396,7 @@ SlashCmdList["QUESTREADERHARVEST"] = function(msg)
     local items, pages = CountItemText()
     print("  " .. items .. " item(s)/plaque(s), " .. pages
           .. " page(s) captured.")
-    print("  Type '/qrharvest export' to open copy-paste window.")
+    print("  Type '/ssharvest export' (or '/qrharvest export') to open copy-paste window.")
+    print("  Paste it at speakstone.beanw.co.uk to have it voiced.")
     print("  Data is written to SavedVariables on logout or /reload.")
 end

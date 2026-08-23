@@ -1,7 +1,7 @@
 ## Interface: 110207, 120000, 120001, 120100
 ## X-Interface: 110207, 120000, 120001, 120100
-## Title: Quest Reader Addon
-## Notes: Plays AI-generated quest voiceovers.
+## Title: SpeakStone Narration
+## Notes: Plays AI-generated voiceovers for quests, books, and gossip.
 ## Author: clhammer weirdautomation@gmail.com, Paratus
 ## Version: 1.2
 ## SavedVariables: QuestReaderAddonDB

@@ -19,7 +19,7 @@ function QuestReader:CreateSettings()
     local optionsFrame
     optionsFrame = CreateFrame("Frame", nil, nil, "VerticalLayoutFrame")
     optionsFrame.spacing = 4
-    local category, layout = Settings.RegisterCanvasLayoutCategory(optionsFrame, "Quest Reader |T" .. addonName .. "\\cs_icon:18:18:0:0|t")
+    local category, layout = Settings.RegisterCanvasLayoutCategory(optionsFrame, "SpeakStone Narration |T" .. addonName .. "\\cs_icon:18:18:0:0|t")
     addon.settingsCategoryID = category.ID
     Settings.RegisterAddOnCategory(category)
 
@@ -34,19 +34,19 @@ function QuestReader:CreateSettings()
     Header:SetSize(150, 50)
     local headerText = Header:CreateFontString(nil, "ARTWORK", "GameFontHighlightHuge")
     headerText:SetPoint("TOPLEFT", 7, -22)
-    headerText:SetText("Quest Reader")
+    headerText:SetText("SpeakStone Narration")
     local divider = Header:CreateTexture(nil, "ARTWORK")
     divider:SetAtlas("Options_HorizontalDivider", true)
     divider:SetPoint("BOTTOMLEFT", -50)
     Header.layoutIndex = GetLayoutIndex()
     Header.bottomPadding = 10
 
-    local function makeCheckButton(text)
-        local checkButton = CreateFrame("CheckButton", addonName.."CheckBox", optionsFrame, "SettingsCheckBoxTemplate")
-        checkButton.text = checkButton:CreateFontString(addonName.."CheckBoxText", "ARTWORK", "GameFontNormal")
+    local function makeCheckButton(name, text)
+        local checkButton = CreateFrame("CheckButton", addonName .. "CheckBox_" .. name, optionsFrame, "SettingsCheckBoxTemplate")
+        checkButton.text = checkButton:CreateFontString(nil, "ARTWORK", "GameFontNormal")
         checkButton.text:SetText(text)
         checkButton.text:SetPoint("LEFT", checkButton, "RIGHT", 4, 0)
-        checkButton:SetSize(21,20)
+        checkButton:SetSize(21, 20)
         return checkButton
     end
 
@@ -54,32 +54,47 @@ function QuestReader:CreateSettings()
         { option = "autoPlayEnabled", detail = "Auto-play quest audio" },
         { option = "autoPlayInQuestMap", detail = "Auto-play in Quest Map (Lore Maps)" },
         { option = "showMinimapButton", detail = "Show minimap button" },
+        { option = "showDebugMessages", detail = "Show debug messages in chat" },
         { option = "muteGossip", detail = "Mute greetings (instant autoplay)" },
         { option = "stopDialogueOnClose", detail = "Stop Dialogue when closing Quest window" },
     }
 
     for _, keyInfo in ipairs(settingsInfo) do
-        local checkButton = makeCheckButton(keyInfo.detail)
+        local checkButton = makeCheckButton(keyInfo.option, keyInfo.detail)
         checkButton.layoutIndex = GetLayoutIndex()
         checkButton:SetHitRectInsets(0, -checkButton.text:GetWidth(), 0, 0)
         checkButton.HoverBackground = nil
         checkButton:SetChecked(QuestReaderAddonDB[keyInfo.option])
         checkButton:SetScript("OnClick", function(self)
             QuestReaderAddonDB[keyInfo.option] = self:GetChecked()
-            checkButton:SetChecked(QuestReaderAddonDB[keyInfo.option])
-            
-            -- Handle specific actions for certain options
             if keyInfo.option == "showMinimapButton" then
-                checkButton:SetScript("OnClick", function(self)
-                    QuestReaderAddonDB.showMinimapButton = self:GetChecked()
-                    addon.UpdateMinimapButtonVisibility()
-                end)
-                checkButton:SetScript("OnShow", function(self)
-                    self:SetChecked(QuestReaderAddonDB.showMinimapButton)
-                end)
+                addon.UpdateMinimapButtonVisibility()
             end
         end)
+        checkButton:SetScript("OnShow", function(self)
+            self:SetChecked(QuestReaderAddonDB[keyInfo.option])
+        end)
     end
+
+StaticPopupDialogs["QUESTREADER_CONFIRM_CLEAR_HARVEST"] = {
+    text = "Are you sure you want to clear all harvested quest, gossip, and book data? This cannot be undone.",
+    button1 = YES,
+    button2 = NO,
+    OnAccept = function()
+        if SlashCmdList["QUESTREADERHARVEST"] then
+            SlashCmdList["QUESTREADERHARVEST"]("wipe")
+        elseif QuestReaderHarvesterDB then
+            QuestReaderHarvesterDB.quests = {}
+            QuestReaderHarvesterDB.gossip = {}
+            QuestReaderHarvesterDB.itemText = {}
+            print("SpeakStone Harvester: cleared.")
+        end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
 
     -- Add the Open Audio Library button
     local openLibraryButton = CreateFrame("Button", nil, optionsFrame, "UIPanelButtonTemplate")
@@ -88,16 +103,32 @@ function QuestReader:CreateSettings()
     openLibraryButton.layoutIndex = GetLayoutIndex()
     openLibraryButton:SetScript("OnClick", OpenAudioLibraryUI)
 
-    -- Add the Export Harvested Data button
-    local exportHarvestButton = CreateFrame("Button", nil, optionsFrame, "UIPanelButtonTemplate")
+    -- Harvest buttons container (Export & Clear side-by-side)
+    local harvestButtonGroup = CreateFrame("Frame", nil, optionsFrame)
+    harvestButtonGroup:SetSize(330, 25)
+    harvestButtonGroup.layoutIndex = GetLayoutIndex()
+
+    local exportHarvestButton = CreateFrame("Button", nil, harvestButtonGroup, "UIPanelButtonTemplate")
     exportHarvestButton:SetText("Export Harvested Data")
     exportHarvestButton:SetSize(160, 25)
-    exportHarvestButton.layoutIndex = GetLayoutIndex()
+    exportHarvestButton:SetPoint("LEFT", harvestButtonGroup, "LEFT", 0, 0)
     exportHarvestButton:SetScript("OnClick", function()
         if SlashCmdList["QUESTREADERHARVEST"] then
             SlashCmdList["QUESTREADERHARVEST"]("export")
         else
-            print("Quest Reader: QuestReaderHarvester addon is not enabled.")
+            print("SpeakStone Narration: SpeakStone Harvester addon is not enabled.")
+        end
+    end)
+
+    local clearHarvestButton = CreateFrame("Button", nil, harvestButtonGroup, "UIPanelButtonTemplate")
+    clearHarvestButton:SetText("Clear Harvested Data")
+    clearHarvestButton:SetSize(160, 25)
+    clearHarvestButton:SetPoint("LEFT", exportHarvestButton, "RIGHT", 10, 0)
+    clearHarvestButton:SetScript("OnClick", function()
+        if SlashCmdList["QUESTREADERHARVEST"] or QuestReaderHarvesterDB then
+            StaticPopup_Show("QUESTREADER_CONFIRM_CLEAR_HARVEST")
+        else
+            print("SpeakStone Narration: SpeakStone Harvester addon is not enabled.")
         end
     end)
 
@@ -111,7 +142,7 @@ function addon:OpenSettings()
     end
 end
 
-SLASH_QUESTREADER1, SLASH_QUESTREADER2 = '/qr', '/questreader'
+SLASH_QUESTREADER1, SLASH_QUESTREADER2, SLASH_QUESTREADER3, SLASH_QUESTREADER4 = '/qr', '/questreader', '/ss', '/speakstone'
 SlashCmdList.QUESTREADER = function(msg)
     if addon.settingsCategoryID then
         Settings.OpenToCategory(addon.settingsCategoryID)

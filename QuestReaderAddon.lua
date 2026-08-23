@@ -20,7 +20,15 @@ local defaultSettings = {
     autoPlayInQuestMap = false,
     muteGossip = true,
     stopDialogueOnClose = true,
+    showDebugMessages = false,
 }
+
+local function DebugPrint(...)
+    if QuestReaderAddonDB and QuestReaderAddonDB.showDebugMessages then
+        print(...)
+    end
+end
+addon.DebugPrint = DebugPrint
 
 local function InitializeAddonDB()
     QuestReaderAddonDB = QuestReaderAddonDB or {}
@@ -50,11 +58,15 @@ local questReaderLauncher = LDB:NewDataObject("QuestReaderAddon", {
             else
                 addon:OpenSettings()
             end
+        elseif button == "MiddleButton" then
+            QuestReaderAddonDB.showDebugMessages = not QuestReaderAddonDB.showDebugMessages
+            print("SpeakStone Narration Debug Messages: " .. (QuestReaderAddonDB.showDebugMessages and "Enabled" or "Disabled"))
         end
     end,
     OnTooltipShow = function(tooltip)
-        tooltip:AddLine("Quest Reader")
+        tooltip:AddLine("SpeakStone Narration")
         tooltip:AddLine("|cffffffffLeft-Click:|r Open Settings", 1, 1, 1)
+        tooltip:AddLine("|cffffffffMiddle-Click:|r Toggle Debug Messages (" .. ((QuestReaderAddonDB and QuestReaderAddonDB.showDebugMessages) and "|cff00ff00On|r" or "|cffff0000Off|r") .. ")", 1, 1, 1)
         if SlashCmdList["QUESTREADERHARVEST"] or QuestReaderHarvesterDB then
             tooltip:AddLine("|cff00ff00Right-Click:|r Export Harvested Data", 0.2, 1, 0.2)
         end
@@ -259,7 +271,7 @@ function DoPlaySound()
     if soundData.soundHandle then
         --print("Playing audio: " .. soundData.soundPath)
     else
-        print("Failed to play audio: " .. soundData.soundFile)
+        DebugPrint("Failed to play audio: " .. soundData.soundFile)
         soundData.isPlaying = false
     end
     addon.currentSound = soundData
@@ -357,7 +369,7 @@ function PlayQuestAudio(textType, skipDelay)
             -- autoplay does not repeat the same line on every quest interaction.
             if not addon.reportedMissing[baseName] then
                 addon.reportedMissing[baseName] = true
-                print("Quest Reader: no audio for quest " .. questID .. " (" .. textType .. ")")
+                DebugPrint("SpeakStone Narration: no audio for quest " .. questID .. " (" .. textType .. ")")
             end
             addon.activeSound = nil
             return
@@ -434,7 +446,7 @@ function PlayGossipAudio()
         -- per NPC interaction.
         if not addon.reportedMissing[baseName] then
             addon.reportedMissing[baseName] = true
-            print("Quest Reader: no gossip audio for NPC " .. npcID)
+            DebugPrint("SpeakStone Narration: no gossip audio for NPC " .. npcID)
         end
         addon.activeSound = nil
         return
@@ -495,7 +507,7 @@ local function PlayItemAudioDirect(itemLink, page)
         local reportKey = baseNames[1]
         if not addon.reportedMissing[reportKey] then
             addon.reportedMissing[reportKey] = true
-            print("Quest Reader: no audio for " .. displayName .. " (page " .. page .. ")")
+            DebugPrint("SpeakStone Narration: no audio for " .. displayName .. " (page " .. page .. ")")
         end
         addon.activeSound = nil
         return
@@ -507,7 +519,7 @@ local function PlayItemAudioDirect(itemLink, page)
         soundFile = soundFile,
         soundPath = soundPath,
     }
-    print("Quest Reader: playing " .. (itemID and ("item " .. itemID) or ("'" .. itemLink .. "'")) .. " (page " .. page .. ")")
+    DebugPrint("SpeakStone Narration: playing " .. (itemID and ("item " .. itemID) or ("'" .. itemLink .. "'")) .. " (page " .. page .. ")")
     DoPlaySound()
 end
 
@@ -591,7 +603,7 @@ local function OnPlayerLogout()
 end
 
 -- Keybindings
-BINDING_HEADER_QUESTREADERADDON = "Quest Reader Addon"
+BINDING_HEADER_QUESTREADERADDON = "SpeakStone Narration"
 BINDING_NAME_PLAYACTIVEQUEST = "Play active quest voiceover"
 
 -- Event Handling for Quest Dialog Events
@@ -672,7 +684,7 @@ logoutFrame:RegisterEvent("PLAYER_LOGOUT")
 logoutFrame:SetScript("OnEvent", OnPlayerLogout)
 
 -- Slash command to toggle auto-play
-SLASH_QUESTREADERAUTO1 = '/qrauto'
+SLASH_QUESTREADERAUTO1, SLASH_QUESTREADERAUTO2, SLASH_QUESTREADERAUTO3 = '/qrauto', '/ssauto', '/speakstoneauto'
 SlashCmdList["QUESTREADERAUTO"] = function(msg)
     if msg == "on" then
         QuestReaderAddonDB.autoPlayEnabled = true
@@ -681,7 +693,20 @@ SlashCmdList["QUESTREADERAUTO"] = function(msg)
     else
         QuestReaderAddonDB.autoPlayEnabled = not QuestReaderAddonDB.autoPlayEnabled
     end
-    print("Quest Reader Auto-Play: " .. (QuestReaderAddonDB.autoPlayEnabled and "Enabled" or "Disabled"))
+    print("SpeakStone Narration Auto-Play: " .. (QuestReaderAddonDB.autoPlayEnabled and "Enabled" or "Disabled"))
+end
+
+-- Slash command to toggle debug messages
+SLASH_QUESTREADERDEBUG1, SLASH_QUESTREADERDEBUG2, SLASH_QUESTREADERDEBUG3 = '/qrdebug', '/ssdebug', '/speakstonedebug'
+SlashCmdList["QUESTREADERDEBUG"] = function(msg)
+    if msg == "on" then
+        QuestReaderAddonDB.showDebugMessages = true
+    elseif msg == "off" then
+        QuestReaderAddonDB.showDebugMessages = false
+    else
+        QuestReaderAddonDB.showDebugMessages = not QuestReaderAddonDB.showDebugMessages
+    end
+    print("SpeakStone Narration Debug Messages: " .. (QuestReaderAddonDB.showDebugMessages and "Enabled" or "Disabled"))
 end
 
 -- Frame for copy-pasting missing quests
@@ -713,7 +738,7 @@ editBox:SetScript("OnEscapePressed", function(self) missingCopyFrame:Hide() end)
 scrollFrame:SetScrollChild(editBox)
 
 -- Slash command to list quest audio missing from the installed sound packs.
-SLASH_QUESTREADERMISSING1 = '/qrmissing'
+SLASH_QUESTREADERMISSING1, SLASH_QUESTREADERMISSING2, SLASH_QUESTREADERMISSING3 = '/qrmissing', '/ssmissing', '/speakstonemissing'
 SlashCmdList["QUESTREADERMISSING"] = function()
     local missing = {}
     for soundFile in pairs(addon.reportedMissing) do
@@ -722,7 +747,7 @@ SlashCmdList["QUESTREADERMISSING"] = function()
     table.sort(missing)
 
     if #missing == 0 then
-        print("Quest Reader: no missing quest audio recorded this session.")
+        print("SpeakStone Narration: no missing quest audio recorded this session.")
         return
     end
 
@@ -735,7 +760,7 @@ SlashCmdList["QUESTREADERMISSING"] = function()
     missingCopyFrame:Show()
     editBox:HighlightText()
     
-    print("Quest Reader: Opened window with " .. #missing .. " missing quest audio file(s).")
+    print("SpeakStone Narration: Opened window with " .. #missing .. " missing quest audio file(s).")
 end
 
 local function SaveMinimapIconPosition()
