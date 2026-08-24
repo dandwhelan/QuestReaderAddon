@@ -398,7 +398,7 @@ class F5Engine:
     prepared once no matter how many passages they have.
     """
 
-    def __init__(self, device, language):
+    def __init__(self, device, language, nfe_step=32):
         try:
             from f5_tts.api import F5TTS
             from f5_tts.infer.utils_infer import preprocess_ref_audio_text
@@ -420,6 +420,11 @@ class F5Engine:
               file=sys.stderr)
         self.model = F5TTS(model=F5_MODEL, device=device)
         self.prepared = {}
+        # 32 is F5's own default. Tested by ear against 16 and 8 on a real
+        # clip on 24 Aug: 16 was judged good enough at 3.7x the speed
+        # (21.7s -> 5.8s); 8 was audibly worse and rejected. Not exposed as a
+        # blanket global -- pass --nfe-step to change it per run.
+        self.nfe_step = nfe_step
 
     def _prepare(self, clips, npc):
         """One reference file plus its transcript, built once per NPC."""
@@ -450,11 +455,13 @@ class F5Engine:
         audio, transcript = self._prepare(clips, npc)
         self.model.infer(ref_file=audio, ref_text=transcript, gen_text=text,
                          file_wave=wav_path, remove_silence=False,
-                         show_info=lambda *a: None)
+                         nfe_step=self.nfe_step, show_info=lambda *a: None)
 
 
-def load_engine(name, device, language):
-    return (F5Engine if name == "f5" else XttsEngine)(device, language)
+def load_engine(name, device, language, nfe_step=32):
+    if name == "f5":
+        return F5Engine(device, language, nfe_step=nfe_step)
+    return XttsEngine(device, language)
 
 
 def main():
@@ -486,6 +493,13 @@ def main():
                         help="skip Ogg encoding and leave WAV output")
     parser.add_argument("--no-normalize", action="store_true",
                         help="skip loudness matching and silence trimming")
+    parser.add_argument("--nfe-step", type=int, default=32,
+                        help="F5-TTS diffusion steps per clip (default 32, "
+                             "F5's own default). Lower is faster: 16 measured "
+                             "at 3.7x speed (21.7s -> 5.8s on a real clip), "
+                             "judged good enough by ear on 24 Aug. 8 was "
+                             "audibly worse and is not recommended. Ignored "
+                             "for --engine xtts")
     parser.add_argument("--speed", type=float, default=1.2,
                         help="playback speed applied at encode time, e.g. "
                              "1.2 for 20%% faster (default 1.2). Pitch is "
@@ -650,7 +664,7 @@ def main():
         print("\nNothing to do.", file=sys.stderr)
         return 0
 
-    engine = load_engine(args.engine, args.device, args.language)
+    engine = load_engine(args.engine, args.device, args.language, args.nfe_step)
     failures = 0
     for position, (target, text, clips, npc, speed) in enumerate(planned, 1):
         wav_target = target[:-4] + ".wav" if target.endswith(".ogg") else target
