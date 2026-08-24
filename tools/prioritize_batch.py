@@ -54,6 +54,7 @@ Usage:
 """
 
 import argparse
+import csv
 import json
 import os
 import re
@@ -161,9 +162,54 @@ def scan_wowhead_cache(cache_dir):
     return expansion_fallback, campaign_ids, important_ids
 
 
+def load_client_campaign_quests(cache_dir):
+    """Campaign quest IDs straight from the client's own tables.
+
+    Chain: CampaignXQuestLine (CampaignID -> QuestLineID) joined to
+    QuestLineXQuest (QuestLineID -> QuestID). A quest sitting in a questline
+    that belongs to a campaign IS a campaign quest, by Blizzard's own
+    definition -- no inference involved.
+
+    This replaces scraping Wowhead pages for a campaign icon, which was the
+    only signal available before these tables were exported. That approach
+    found 59 campaign quests, because it could only see the few thousand
+    pages already cached and the icon only exists on Battle for Azeroth and
+    later content. The client tables give 6,113 covering every expansion.
+
+    Returns an empty set if the tables are absent -- the caller falls back to
+    the scraped markers, which is worse but still works.
+    """
+    cxq = os.path.join(cache_dir, "CampaignXQuestLine.csv")
+    lxq = os.path.join(cache_dir, "QuestLineXQuest.csv")
+    if not (os.path.exists(cxq) and os.path.exists(lxq)):
+        return set()
+
+    def rows(path):
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            return list(csv.DictReader(handle, delimiter=";"))
+
+    try:
+        campaign_lines = {r["QuestLineID"] for r in rows(cxq)}
+        return {r["QuestID"] for r in rows(lxq)
+                if r["QuestLineID"] in campaign_lines}
+    except (KeyError, OSError) as exc:
+        log(f"warning: could not read client campaign tables ({exc}); "
+            f"falling back to scraped markers")
+        return set()
+
+
 def build_expansion_map(cache_dir, quest_expansions_json):
     primary = load_quest_expansions_json(quest_expansions_json)
     fallback, campaign_ids, important_ids = scan_wowhead_cache(cache_dir)
+
+    # The client's own campaign tables are authoritative where they exist; the
+    # scraped set is only a fallback for anything they somehow miss.
+    client_campaign = load_client_campaign_quests(cache_dir)
+    if client_campaign:
+        added = len(client_campaign - campaign_ids)
+        log(f"Client campaign tables: {len(client_campaign):,} campaign "
+            f"quest(s) ({added:,} the wowhead scrape had missed).")
+        campaign_ids = campaign_ids | client_campaign
 
     mapping = dict(fallback)
     mapping.update(primary)  # primary (quest_expansions.json) wins
