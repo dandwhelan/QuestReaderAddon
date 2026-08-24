@@ -162,7 +162,7 @@ def scan_wowhead_cache(cache_dir):
     return expansion_fallback, campaign_ids, important_ids
 
 
-def load_client_campaign_quests(cache_dir):
+def load_client_campaign_quests():
     """Campaign quest IDs straight from the client's own tables.
 
     Chain: CampaignXQuestLine (CampaignID -> QuestLineID) joined to
@@ -176,11 +176,20 @@ def load_client_campaign_quests(cache_dir):
     pages already cached and the icon only exists on Battle for Azeroth and
     later content. The client tables give 6,113 covering every expansion.
 
+    Lives in tools/.cache/ directly (exported from wow.export), NOT
+    tools/.cache/wowhead/ -- that subfolder is per-quest HTML pages, a
+    different cache with a different purpose. The first version of this
+    function took cache_dir from the caller and looked in the wowhead
+    subfolder, found nothing, and silently fell back to the scrape without
+    ever logging that it had. Hardcoded here instead of threaded through
+    another parameter, so that mistake can't happen again the same way.
+
     Returns an empty set if the tables are absent -- the caller falls back to
     the scraped markers, which is worse but still works.
     """
-    cxq = os.path.join(cache_dir, "CampaignXQuestLine.csv")
-    lxq = os.path.join(cache_dir, "QuestLineXQuest.csv")
+    client_cache = os.path.join(REPO_ROOT, "tools", ".cache")
+    cxq = os.path.join(client_cache, "CampaignXQuestLine.csv")
+    lxq = os.path.join(client_cache, "QuestLineXQuest.csv")
     if not (os.path.exists(cxq) and os.path.exists(lxq)):
         return set()
 
@@ -204,7 +213,7 @@ def build_expansion_map(cache_dir, quest_expansions_json):
 
     # The client's own campaign tables are authoritative where they exist; the
     # scraped set is only a fallback for anything they somehow miss.
-    client_campaign = load_client_campaign_quests(cache_dir)
+    client_campaign = load_client_campaign_quests()
     if client_campaign:
         added = len(client_campaign - campaign_ids)
         log(f"Client campaign tables: {len(client_campaign):,} campaign "
