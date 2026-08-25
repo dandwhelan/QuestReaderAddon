@@ -103,6 +103,20 @@ def fetch(quest_id, delay, refresh=False):
                 raise Blocked(f"still {exc.code} after {attempt} retries -- "
                              f"wowhead itself may be down, not a rate limit")
             raise
+        except (TimeoutError, urllib.error.URLError) as exc:
+            # Not an HTTP error at all -- the connection itself timed out or
+            # failed (DNS, reset, etc). Two separate crashes in one overnight
+            # run: this was the second, after 502/503/504 were already fixed.
+            # Same retry-then-give-up shape as the HTTP case, because leaving
+            # any network exception uncaught here is exactly how a harvester
+            # meant to run unattended stops running unattended.
+            if attempt < 3:
+                print(f"  network error ({exc}); waiting {backoff}s ...",
+                      file=sys.stderr)
+                time.sleep(backoff)
+                backoff *= 2
+                continue
+            raise Blocked(f"still failing after {attempt} retries: {exc}")
         finally:
             # Pace every request, including failures, so a run of missing IDs
             # does not turn into a burst.
